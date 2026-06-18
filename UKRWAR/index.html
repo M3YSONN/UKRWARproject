@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Моя Тактична Гра</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+    <button id="hamburger-btn" onclick="toggleMainMenu()">☰</button>
+    <div id="global-clock">День: 1 | Година: 00:00</div>
+    
+    <!-- Лічильник резерву Ставки -->
+    <div id="manpower-counter" style="position: absolute; top: 15px; right: 15px; z-index: 1100; background: rgba(15,25,36,0.92); padding: 8px 18px; border: 1px solid #00ff88; border-radius: 6px; color: #00ff88; font-size: 14px; font-weight: bold; pointer-events: none;">
+        Резерв Ставки: <span id="manpower-val">0</span> ос.
+    </div>
+
+    <!-- ── SIDE MENU ── -->
+    <div id="game-menu" class="hidden">
+        <h2>Сценарії</h2>
+        <button onclick="loadScenario('global')">🌍 Глобальна мапа</button>
+        <button onclick="toggleHistoricalMenu()">📜 Історичні бої ▾</button>
+        <div id="historical-submenu" class="hidden">
+            <button class="sub-btn" onclick="loadScenario('kyiv')">Битва за Київ</button>
+            <button class="sub-btn" onclick="loadScenario('mariupol')">Маріуполь</button>
+            <button class="sub-btn" onclick="loadScenario('kherson')">Херсон</button>
+            <button class="sub-btn" onclick="loadScenario('bakhmut')">Бахмут</button>
+            <button class="sub-btn" onclick="loadScenario('avdiivka')">Авдіївка</button>
+        </div>
+
+        <h2>Сили Оборони</h2>
+        <button onclick="document.getElementById('zsu-submenu').classList.toggle('hidden')">🔵 Сухопутні війська (ЗСУ) ▾</button>
+        <div id="zsu-submenu" class="hidden submenu-group">
+            <button id="btn-spawn-zsu_3sh" class="sub-btn" onclick="spawnSpecificBrigade('zsu_3sh')">3-тя ОШБр</button>
+            <button id="btn-spawn-zsu_93"  class="sub-btn" onclick="spawnSpecificBrigade('zsu_93')">93-тя ОМБр «Холодний Яр»</button>
+        </div>
+
+        <button onclick="document.getElementById('dshv-submenu').classList.toggle('hidden')">🔵 ДШВ ▾</button>
+        <div id="dshv-submenu" class="hidden submenu-group">
+            <button id="btn-spawn-dshv_80" class="sub-btn" onclick="spawnSpecificBrigade('dshv_80')">80-та ОДШБр</button>
+            <button id="btn-spawn-dshv_81" class="sub-btn" onclick="spawnSpecificBrigade('dshv_81')">81-ша ОАеМБр</button>
+        </div>
+
+        <button onclick="document.getElementById('ngu-submenu').classList.toggle('hidden')">🔵 НГУ ▾</button>
+        <div id="ngu-submenu" class="hidden submenu-group">
+            <button id="btn-spawn-ngu_azov" class="sub-btn" onclick="spawnSpecificBrigade('ngu_azov')">12-та БрСП «Азов»</button>
+        </div>
+
+        <h2>Інженерія</h2>
+        <button onclick="toggleFortMode()" id="btn-fort-mode">⛏️ Режим укріплень</button>
+
+        <hr id="menu-divider">
+        <h2>Тест</h2>
+        <button onclick="spawnEnemy()" style="background:#3a1010; border-color:#800000; color:#ff8888;">🔴 Додати ворога</button>
+        <button onclick="resetGameState()" style="background:#1a1a1a; margin-top: 4px;">🔄 Скинути прогрес</button>
+    </div>
+
+    <!-- ── FORTIFICATION PLACEMENT PALETTE ── -->
+    <div id="fort-mode-panel">
+        <h3>⛏️ Розмістити укріплення</h3>
+        <button class="fort-palette-btn" data-fort="trench" onclick="selectFortType('trench')">
+            <span class="ficon">⛏️</span>
+            <span class="finfo"><span class="fname">Окоп</span><br><span class="fdesc">+20% оборони · до 5 км від фронту</span></span>
+        </button>
+        <button class="fort-palette-btn" data-fort="sp" onclick="selectFortType('sp')">
+            <span class="ficon">👁️</span>
+            <span class="finfo"><span class="fname">Спостережний пункт</span><br><span class="fdesc">+35% · розвідка · до 5 км</span></span>
+        </button>
+        <button class="fort-palette-btn" data-fort="dugout" onclick="selectFortType('dugout')">
+            <span class="ficon">🪵</span>
+            <span class="finfo"><span class="fname">Бліндаж</span><br><span class="fdesc">+50% · 2–8 км від фронту</span></span>
+        </button>
+        <button class="fort-palette-btn" data-fort="vop" onclick="selectFortType('vop')">
+            <span class="ficon">⭐</span>
+            <span class="finfo"><span class="fname">ВОП (Взводний опорний)</span><br><span class="fdesc">+80% · 8–15 км · до 3 загонів</span></span>
+        </button>
+        <button class="fort-palette-btn" data-fort="dot" onclick="selectFortType('dot')">
+            <span class="ficon">🏰</span>
+            <span class="finfo"><span class="fname">ДОТ</span><br><span class="fdesc">+150% · бетон · скрізь</span></span>
+        </button>
+        <button class="fort-palette-btn" data-fort="rear" onclick="selectFortType('rear')">
+            <span class="ficon">⛺</span>
+            <span class="finfo"><span class="fname">Тилова лінія</span><br><span class="fdesc">+40% · 20+ км · база</span></span>
+        </button>
+        <button id="fort-mode-cancel" onclick="exitFortMode()">✕ Вийти з режиму</button>
+    </div>
+
+    <!-- ── BRIGADE PANEL ── -->
+    <div id="brigade-panel">
+        <h3>
+            <span id="bpanel-name">Бригада</span>
+            <button id="brigade-close-btn" onclick="closeBrigadePanel()">✕</button>
+        </h3>
+
+        <div class="bpanel-stat">Загальна чисельність (штат): <span id="bpanel-total">0</span> ос.</div>
+        <div class="bpanel-stat">В строю (резерв): <span id="bpanel-reserve">0</span> ос.</div>
+        <div class="bpanel-stat">На обороні: <span id="bpanel-on-defense">0</span> ос.</div>
+        <div class="bpanel-stat">В штурмі: <span id="bpanel-on-assault">0</span> ос.</div>
+        <div class="bpanel-stat">На передовій (днів): <span id="bpanel-days">0</span></div>
+        <div id="brigade-days-warning"></div>
+
+        <div class="bpanel-section" id="bpanel-reinforce-section">
+            <h4>🔄 Поповнення та Ротація</h4>
+            <div style="display: flex; gap: 6px; margin-bottom: 6px;">
+                <input type="number" id="reinforce-amount" placeholder="Кількість..." style="width: 100%; padding: 5px; background: #0d1b2a; border: 1px solid #2d4a6b; color: white; border-radius: 4px; font-size:12px;">
+                <button onclick="reinforceBrigade()" style="background: #003322; color: #00ff88; border: 1px solid #00aa66; border-radius: 4px; padding: 5px 10px; cursor: pointer; font-size: 12px; font-weight: bold;">➕ Дати</button>
+            </div>
+            <button onclick="withdrawToReserve()" style="width: 100%; padding: 6px; background: #3a1010; color: #ff8888; border: 1px solid #800000; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold;">🏕 Відвести в тил (Резерв)</button>
+        </div>
+
+        <div class="bpanel-section">
+            <h4>Відряджені загони</h4>
+            <div id="detachment-list"><small style="color:#556">Немає активних загонів.</small></div>
+        </div>
+
+        <div class="bpanel-section">
+            <h4>Відрядити загін</h4>
+            <div id="send-det-form">
+                <label>Кількість бійців:
+                    <input type="number" id="det-size" value="200" min="10" max="3000">
+                </label>
+                <div class="det-send-btns">
+                    <button id="btn-send-defense" onclick="startSendDetachment('defense')">🛡 На оборону</button>
+                    <button id="btn-send-assault" onclick="startSendDetachment('assault')">⚔ В штурм</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── FORTIFICATION INFO PANEL ── -->
+    <div id="fort-info-panel">
+        <button id="fort-close-btn" onclick="closeFortInfoPanel()">✕</button>
+        <h3 id="fi-name">Укріплення</h3>
+        <div class="fi-stat">Тип: <span id="fi-type">—</span></div>
+        <div class="fi-stat">Бонус: <span id="fi-bonus">—</span></div>
+        <div class="fi-stat">Слоти: <span id="fi-slots">—</span></div>
+        <div id="fort-garrison-list"></div>
+    </div>
+
+    <!-- ── COMBAT LOG ── -->
+    <div id="combat-log" class="hidden">
+        <h3>Зведення бою</h3>
+        <div id="combat-text">Бій не розпочато...</div>
+    </div>
+
+    <div id="map"></div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
