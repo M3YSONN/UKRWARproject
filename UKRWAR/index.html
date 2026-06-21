@@ -14,14 +14,15 @@
     
     <!-- Лічильник резерву Ставки -->
     <div id="manpower-counter" style="position: absolute; top: 15px; right: 15px; z-index: 1100; background: rgba(15,25,36,0.92); padding: 8px 18px; border: 1px solid #00ff88; border-radius: 6px; color: #00ff88; font-size: 14px; font-weight: bold; pointer-events: none;">
-        Резерв Ставки: <span id="manpower-val">0</span> ос.
+        Резерв Ставки: <span id="manpower-val">0</span> ос.<br>
+        Загальна кількість військ: <span id="total-troops-val">0</span> ос.
     </div>
 
     <!-- ── SIDE MENU ── -->
     <div id="game-menu" class="hidden">
         <h2>Сценарії</h2>
         <button onclick="loadScenario('global')">🌍 Глобальна мапа</button>
-        <button onclick="toggleHistoricalMenu()">📜 Історичні бої ▾</button>
+        <button onclick="toggleHistoricalMenu()">📜 Історичні бої  ***В РОЗРОБЦІ*** ▾</button>
         <div id="historical-submenu" class="hidden">
             <button class="sub-btn" onclick="loadScenario('kyiv')">Битва за Київ</button>
             <button class="sub-btn" onclick="loadScenario('mariupol')">Маріуполь</button>
@@ -33,19 +34,53 @@
         <h2>Сили Оборони</h2>
         <button onclick="document.getElementById('zsu-submenu').classList.toggle('hidden')">🔵 Сухопутні війська (ЗСУ) ▾</button>
         <div id="zsu-submenu" class="hidden submenu-group">
+
+            <button id="btn-spawn-zsu_1"  class="sub-btn" onclick="spawnSpecificBrigade('zsu_1')">1-ша ОВМБр </button>
+            <button id="btn-spawn-zsu_3"  class="sub-btn" onclick="spawnSpecificBrigade('zsu_3')">3-тя ОВМБр </button>
+            <button id="btn-spawn-zsu_4"  class="sub-btn" onclick="spawnSpecificBrigade('zsu_4')">4-та ОВМБр </button>
+            <button id="btn-spawn-zsu_5"  class="sub-btn" onclick="spawnSpecificBrigade('zsu_5')">5-та ОВМБр </button>
+
             <button id="btn-spawn-zsu_3sh" class="sub-btn" onclick="spawnSpecificBrigade('zsu_3sh')">3-тя ОШБр</button>
+            <button id="btn-spawn-zsu_14" class="sub-btn" onclick="spawnSpecificBrigade('zsu_14')">14-та ОМБр</button>
             <button id="btn-spawn-zsu_93"  class="sub-btn" onclick="spawnSpecificBrigade('zsu_93')">93-тя ОМБр «Холодний Яр»</button>
+            
+
+
+
         </div>
 
         <button onclick="document.getElementById('dshv-submenu').classList.toggle('hidden')">🔵 ДШВ ▾</button>
         <div id="dshv-submenu" class="hidden submenu-group">
+            <button id="btn-spawn-dshv_25" class="sub-btn" onclick="spawnSpecificBrigade('dshv_25')">25-та ОПДБр</button>
+            <button id="btn-spawn-dshv_46" class="sub-btn" onclick="spawnSpecificBrigade('dshv_46')">46-та ОАБр</button>
+            <button id="btn-spawn-dshv_68" class="sub-btn" onclick="spawnSpecificBrigade('dshv_68')">68-ма ОАБр</button>
+            <button id="btn-spawn-dshv_71" class="sub-btn" onclick="spawnSpecificBrigade('dshv_71')">71-ма ОАБр</button>
+            <button id="btn-spawn-dshv_77" class="sub-btn" onclick="spawnSpecificBrigade('dshv_77')">77-ма ОАБр</button>
+            <button id="btn-spawn-dshv_78" class="sub-btn" onclick="spawnSpecificBrigade('dshv_78')">78-ма ОДШБр</button>
+            <button id="btn-spawn-dshv_79" class="sub-btn" onclick="spawnSpecificBrigade('dshv_79')">79-та ОДШБр</button>
             <button id="btn-spawn-dshv_80" class="sub-btn" onclick="spawnSpecificBrigade('dshv_80')">80-та ОДШБр</button>
             <button id="btn-spawn-dshv_81" class="sub-btn" onclick="spawnSpecificBrigade('dshv_81')">81-ша ОАеМБр</button>
+            <button id="btn-spawn-dshv_82" class="sub-btn" onclick="spawnSpecificBrigade('dshv_82')">82-ма ОДШБр</button>
+            <button id="btn-spawn-dshv_95" class="sub-btn" onclick="spawnSpecificBrigade('dshv_95')">95-ма ОДШБр</button>
+            <button id="btn-spawn-dshv_132" class="sub-btn" onclick="spawnSpecificBrigade('dshv_132')">132-ий ОРб</button>
         </div>
 
         <button onclick="document.getElementById('ngu-submenu').classList.toggle('hidden')">🔵 НГУ ▾</button>
         <div id="ngu-submenu" class="hidden submenu-group">
+            <button id="btn-spawn-ngu_2" class="sub-btn" onclick="spawnSpecificBrigade('ngu_2')">2-га Окрема галицька Бригада</button>
+            <button id="btn-spawn-ngu_3" class="sub-btn" onclick="spawnSpecificBrigade('ngu_3')">3-тя БроП</button>
+            <button id="btn-spawn-ngu_5" class="sub-btn" onclick="spawnSpecificBrigade('ngu_5')">5-та Бригада</button>
+
             <button id="btn-spawn-ngu_azov" class="sub-btn" onclick="spawnSpecificBrigade('ngu_azov')">12-та БрСП «Азов»</button>
+            <button id="btn-spawn-ngu_14" class="sub-btn" onclick="spawnSpecificBrigade('ngu_14')">14-та БроП</button>
+            <button id="btn-spawn-ngu_17" class="sub-btn" onclick="spawnSpecificBrigade('ngu_17')">17-та Бригада</button>
+
+            <button id="btn-spawn-ngu_18" class="sub-btn" onclick="spawnSpecificBrigade('ngu_18')">18-та Бригада</button>
+
+            <button id="btn-spawn-ngu_27" class="sub-btn" onclick="spawnSpecificBrigade('ngu_27')">27-ма Бригада</button>
+            <button id="btn-spawn-ngu_31" class="sub-btn" onclick="spawnSpecificBrigade('ngu_31')">31-та Бригада</button>
+
+
         </div>
 
         <h2>Інженерія</h2>
