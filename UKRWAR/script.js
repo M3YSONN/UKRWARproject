@@ -17,17 +17,70 @@ const map = L.map('map', {
 });
 L.control.zoom({ position: 'topright' }).addTo(map);
 
-// === 2. СЦЕНАРІЇ ===
+// === 2. ЛБЗ ===
+
+// === 2.1. СЕГМЕНТИ ЛБЗ (З Півдня на Північ) ===
+const frontSegments = {
+    kherson: { // Херсонський (від Кінбурна до Каховського водосховища)
+        blue: [[46.52, 31.57], [46.63, 32.61], [47.20, 34.00]],
+        red:  [[46.49, 31.60], [46.60, 32.64], [47.17, 34.04]]
+    },
+    zaporizhzhia: { // Запорізький (Кам'янське - Роботине - Гуляйполе)
+        blue: [[47.45, 35.30], [47.45, 35.80], [47.75, 36.80]],
+        red:  [[47.42, 35.32], [47.42, 35.82], [47.72, 36.82]]
+    },
+    donetsk_south: { // Вугледарський / Курахівський
+        blue: [[47.85, 37.45], [48.15, 37.75]],
+        red:  [[47.82, 37.48], [48.13, 37.78]]
+    },
+    pokrovsk_toretsk: { // Покровський, Торецький, Часів Яр
+        blue: [[48.60, 37.95], [48.95, 38.25]],
+        red:  [[48.58, 37.98], [48.93, 38.29]]
+    },
+    luhansk_kharkiv: { // Лиман, Куп'янськ, Вовчанськ
+        blue: [[49.40, 38.00], [49.85, 37.80], [50.35, 36.90]],
+        red:  [[49.38, 38.04], [49.83, 37.84], [50.36, 36.94]]
+    }
+    // Сюди легко додати kursk: { blue: [...], red: [...] }
+};
+
+// === 2.2. ФУНКЦІЯ ЗБИРАННЯ ФРОНТУ ===
+function buildFrontline(color, segmentsOrder) {
+    let combinedLine = [];
+    for (const segmentName of segmentsOrder) {
+        if (frontSegments[segmentName] && frontSegments[segmentName][color]) {
+            // Додаємо всі точки поточного сегмента до загального масиву
+            combinedLine.push(...frontSegments[segmentName][color]);
+        }
+    }
+    return combinedLine;
+}
+
+// Задаємо порядок зшивання (від гирла Дніпра до кордону на Слобожанщині)
+const mainFrontOrder = [
+    'kherson', 
+    'zaporizhzhia', 
+    'donetsk_south', 
+    'pokrovsk_toretsk', 
+    'luhansk_kharkiv'
+];
+
+
+// === 2.3. СЦЕНАРІЇ ===
 const scenarios = {
     global: {
         center: [48.5, 31.2], zoom: 6,
-        frontlineBlue: [[46.52,31.57],[46.63,32.61],[47.20,34.00],[47.45,35.30],[47.45,35.80],[47.75,36.80],[47.85,37.45],[48.15,37.75],[48.60,37.95],[48.95,38.25],[49.40,38.00],[49.85,37.80],[50.35,36.90]],
-        frontlineRed:  [[46.49,31.60],[46.60,32.64],[47.17,34.04],[47.42,35.32],[47.42,35.82],[47.72,36.82],[47.82,37.48],[48.13,37.78],[48.58,37.98],[48.93,38.29],[49.38,38.04],[49.83,37.84],[50.36,36.94]],
+        // Викликаємо зшивач для синьої та червоної ліній
+        frontlineBlue: buildFrontline('blue', mainFrontOrder),
+        frontlineRed:  buildFrontline('red', mainFrontOrder),
+        
         redBorders:  [[50.35,36.90],[50.00,40.00],[47.00,39.00],[45.30,36.50],[44.30,33.50],[46.00,31.57]],
         blueBorders: [[50.35,36.90],[52.30,33.00],[51.50,23.80],[48.40,22.15],[45.30,29.60],[46.52,31.57]]
     },
     bakhmut: {
         center: [48.59,38.00], zoom: 12,
+        // Для локальних сценаріїв можна залишити хардкод, 
+        // або створити окремий масив: buildFrontline('blue', ['pokrovsk_toretsk'])
         frontlineBlue: [[48.52,37.92],[48.56,37.95],[48.59,37.97],[48.62,37.99],[48.66,37.98]],
         frontlineRed:  [[48.51,37.95],[48.55,37.98],[48.58,38.00],[48.61,38.02],[48.65,38.01]],
         redBorders:  [[48.65,38.20],[48.51,38.20]],
@@ -69,15 +122,49 @@ const fortifications = {
 // === 5. ШАБЛОНИ БРИГАД ===
 const unitTemplates = {
     // ЗСУ
-    zsu_3sh: { name: "3-тя ОШБр", type: "ЗСУ", totalMen: 3000, attack: 85, defense: 60, color: "unit-blue", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/3/35/3%D0%BE%D1%88%D0%B1%D1%80_logo.svg/960px-3%D0%BE%D1%88%D0%B1%D1%80_logo.svg.png" },
-    zsu_93:  { name: "93-тя ОМБр", type: "ЗСУ", totalMen: 3500, attack: 65, defense: 85, color: "unit-blue", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/3/30/93_%D0%9E%D0%9C%D0%91%D1%80_%D0%BF.svg/960px-93_%D0%9E%D0%9C%D0%91%D1%80_%D0%BF.svg.png" },
+    zsu_1: { name: "1-ша ОВМБр", type: "ЗСУ", totalMen: 4000, attack: 50, defense: 60, color: "unit-blue", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/7/7a/1_%D0%9E%D0%A2%D0%91%D1%80.svg/960px-1_%D0%9E%D0%A2%D0%91%D1%80.svg.png" },
+    zsu_3: { name: "3-тя ОВМБр", type: "ЗСУ", totalMen: 4000, attack: 50, defense: 60, color: "unit-blue", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/6/68/3_%D0%9E%D0%A2%D0%91%D1%80_%D0%BA.svg/960px-3_%D0%9E%D0%A2%D0%91%D1%80_%D0%BA.svg.png" },
+    zsu_4: { name: "4-та ОВМБр", type: "ЗСУ", totalMen: 4000, attack: 50, defense: 60, color: "unit-blue", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d6/4th_Tank_Brigade.png/960px-4th_Tank_Brigade.png" },
+    zsu_5: { name: "5-та ОВМБр", type: "ЗСУ", totalMen: 4000, attack: 50, defense: 60, color: "unit-blue", logo: "https://upload.wikimedia.org/wikipedia/commons/2/23/5th_Tank_Brigade.png" },
+    zsu_14: { name: "14-та ОВМБр", type: "ЗСУ", totalMen: 4500, attack: 60, defense: 70, color: "unit-blue", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/2/2d/14th_Mechanized_Brigade_%28Ukraine%29.svg/960px-14th_Mechanized_Brigade_%28Ukraine%29.svg.png" },
+
+    
+    
+    
+    zsu_3sh: { name: "3-тя ОШБр", type: "ЗСУ", totalMen: 5500, attack: 85, defense: 60, color: "unit-blue", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/3/35/3%D0%BE%D1%88%D0%B1%D1%80_logo.svg/960px-3%D0%BE%D1%88%D0%B1%D1%80_logo.svg.png" },
+    zsu_93:  { name: "93-тя ОМБр", type: "ЗСУ", totalMen: 5000, attack: 65, defense: 85, color: "unit-blue", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/3/30/93_%D0%9E%D0%9C%D0%91%D1%80_%D0%BF.svg/960px-93_%D0%9E%D0%9C%D0%91%D1%80_%D0%BF.svg.png" },
     // ДШВ
-    dshv_80: { name: "80-та ОДШБр", type: "ДШВ", totalMen: 2500, attack: 75, defense: 65, color: "unit-blue", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e5/80_%D0%9E%D0%94%D0%A8%D0%91%D1%80_%D0%BA.svg/960px-80_%D0%9E%D0%94%D0%A8%D0%91%D1%80_%D0%BA.svg.png" },
-    dshv_81: { name: "81-ша ОАеМБр", type: "ДШВ", totalMen: 2500, attack: 70, defense: 70, color: "unit-blue", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/6/67/81_%D0%9E%D0%90%D0%B5%D0%9C%D0%91%D1%80_%D0%BA.svg/960px-81_%D0%9E%D0%90%D0%B5%D0%9C%D0%91%D1%80_%D0%BA.svg.png" },
+    dshv_80: { name: "80-та ОДШБр", type: "ДШВ", totalMen: 3500, attack: 75, defense: 65, color: "unit-blue", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e5/80_%D0%9E%D0%94%D0%A8%D0%91%D1%80_%D0%BA.svg/960px-80_%D0%9E%D0%94%D0%A8%D0%91%D1%80_%D0%BA.svg.png" },
+    dshv_25: { name: "25-та ОПДБр", type: "ДШВ", totalMen: 3000, attack: 75, defense: 65, color: "unit-blue", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/8/84/25_%D0%9E%D0%9F%D0%94%D0%91%D1%80_%D0%BA.svg/960px-25_%D0%9E%D0%9F%D0%94%D0%91%D1%80_%D0%BA.svg.png" },
+    dshv_78: { name: "78-та ОДШБр", type: "ДШВ", totalMen: 2500, attack: 75, defense: 65, color: "unit-blue", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f2/78th_Air_Assault_Regiment_SSI.svg/960px-78th_Air_Assault_Regiment_SSI.svg.png" },
+    dshv_79: { name: "79-та ОДШБр", type: "ДШВ", totalMen: 3000, attack: 75, defense: 65, color: "unit-blue", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f8/79_%D0%9E%D0%94%D0%A8%D0%91%D1%80_%D0%BA.svg/960px-79_%D0%9E%D0%94%D0%A8%D0%91%D1%80_%D0%BA.svg.png" },
+    dshv_46: { name: "46-та ОАБр", type: "ДШВ", totalMen: 3000, attack: 75, defense: 65, color: "unit-blue", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/0/05/46th_Airmobile_Brigade.svg/960px-46th_Airmobile_Brigade.svg.png" },
+    dshv_68: { name: "68-та ОАБр", type: "ДШВ", totalMen: 3500, attack: 75, defense: 65, color: "unit-blue", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/0/0f/%D0%A8%D0%B5%D0%B2%D1%80%D0%BE%D0%BD_68_%D0%BE%D0%B0%D0%B5%D0%BC%D0%B1%D1%80.png/960px-%D0%A8%D0%B5%D0%B2%D1%80%D0%BE%D0%BD_68_%D0%BE%D0%B0%D0%B5%D0%BC%D0%B1%D1%80.png" },
+    dshv_71: { name: "71-та ОАБр", type: "ДШВ", totalMen: 3000, attack: 75, defense: 65, color: "unit-blue", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/f/fd/71st_Jaeger_Brigade.svg/960px-71st_Jaeger_Brigade.svg.png" },
+    dshv_82: { name: "82-та ОДШБр", type: "ДШВ", totalMen: 4000, attack: 75, defense: 65, color: "unit-blue", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/7/78/82nd_Air_Assault_Brigade.svg/960px-82nd_Air_Assault_Brigade.svg.png" },
+    dshv_95: { name: "95-та ОДШБр", type: "ДШВ", totalMen: 4000, attack: 75, defense: 65, color: "unit-blue", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/1/13/95_%D0%9E%D0%94%D0%A8%D0%91%D1%80_%D0%BA.svg/960px-95_%D0%9E%D0%94%D0%A8%D0%91%D1%80_%D0%BA.svg.png" },
+    dshv_132: { name: "132-ий ОРб", type: "ДШВ", totalMen: 700, attack: 85, defense: 20, color: "unit-blue", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/9/9e/132_%D0%9E%D0%A0%D0%91_%D0%BA.svg/960px-132_%D0%9E%D0%A0%D0%91_%D0%BA.svg.png" },
+
+    
+    
+
+
+    dshv_77: { name: "77-та ОАБр", type: "ДШВ", totalMen: 2500, attack: 75, defense: 65, color: "unit-blue", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/1/1c/77th_Airmobile_Brigade.svg/960px-77th_Airmobile_Brigade.svg.png" },
+    dshv_81: { name: "81-ша ОАеМБр", type: "ДШВ", totalMen: 3500, attack: 70, defense: 70, color: "unit-blue", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/6/67/81_%D0%9E%D0%90%D0%B5%D0%9C%D0%91%D1%80_%D0%BA.svg/960px-81_%D0%9E%D0%90%D0%B5%D0%9C%D0%91%D1%80_%D0%BA.svg.png" },
     // НГУ
-    ngu_azov:{ name: "12 БрСП «Азов»", type: "НГУ", totalMen: 2500, attack: 80, defense: 80, color: "unit-blue", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/8/84/12th_Special_Purpose_Brigade_%27Azov%27_Insignia_-_First_Variant.png/960px-12th_Special_Purpose_Brigade_%27Azov%27_Insignia_-_First_Variant.png" },
+    
+    ngu_azov:{ name: "12 БрСП «Азов»", type: "НГУ", totalMen: 5000, attack: 80, defense: 90, color: "unit-blue", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/8/84/12th_Special_Purpose_Brigade_%27Azov%27_Insignia_-_First_Variant.png/960px-12th_Special_Purpose_Brigade_%27Azov%27_Insignia_-_First_Variant.png" },
+    ngu_2:{ name: "2 окерма Галицька бригада ", type: "НГУ", totalMen: 2000, attack: 30, defense: 70, color: "unit-blue", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f9/%D0%95%D0%BC%D0%B1%D0%BB%D0%B5%D0%BC%D0%B0_2-%D1%97_%D0%BE%D0%BA%D1%80%D0%B5%D0%BC%D0%BE%D1%97_%D0%93%D0%B0%D0%BB%D0%B8%D1%86%D1%8C%D0%BA%D0%BE%D1%97_%D0%B1%D1%80%D0%B8%D0%B3%D0%B0%D0%B4%D0%B8_%D0%9D%D0%93%D0%A3.png/960px-%D0%95%D0%BC%D0%B1%D0%BB%D0%B5%D0%BC%D0%B0_2-%D1%97_%D0%BE%D0%BA%D1%80%D0%B5%D0%BC%D0%BE%D1%97_%D0%93%D0%B0%D0%BB%D0%B8%D1%86%D1%8C%D0%BA%D0%BE%D1%97_%D0%B1%D1%80%D0%B8%D0%B3%D0%B0%D0%B4%D0%B8_%D0%9D%D0%93%D0%A3.png" },
+    ngu_14:{ name: "14-та БроП", type: "НГУ", totalMen: 3500, attack: 80, defense: 50, color: "unit-blue", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/a/ac/Chervona_kalyna_brigade_new.png/500px-Chervona_kalyna_brigade_new.png" },
+    ngu_27:{ name: "27-ма бригада", type: "НГУ", totalMen: 2000, attack: 20, defense: 70, color: "unit-blue", logo: "https://upload.wikimedia.org/wikipedia/commons/9/9c/27_%D0%9F%D0%91%D1%80_%D0%9D%D0%93%D0%A3.jpg" },
+    ngu_3:{ name: "3-тя БроП", type: "НГУ", totalMen: 3000, attack: 70, defense: 70, color: "unit-blue", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/4/4d/%D0%9D%D0%B0%D1%80%D1%83%D0%BA%D0%B0%D0%B2%D0%BD%D0%B8%D0%B9_%D0%B7%D0%BD%D0%B0%D0%BA_%D0%B1%D1%80%D0%B8%D0%B3%D0%B0%D0%B4%D0%B8.jpg/960px-%D0%9D%D0%B0%D1%80%D1%83%D0%BA%D0%B0%D0%B2%D0%BD%D0%B8%D0%B9_%D0%B7%D0%BD%D0%B0%D0%BA_%D0%B1%D1%80%D0%B8%D0%B3%D0%B0%D0%B4%D0%B8.jpg" },
+    ngu_5:{ name: "5-та бригада", type: "НГУ", totalMen: 3000, attack: 50, defense: 70, color: "unit-blue", logo: "https://upload.wikimedia.org/wikipedia/commons/0/0d/5_%D0%A1%D0%BB%D0%BE%D0%B1%D0%BE%D0%B6%D0%B0%D0%BD%D1%81%D1%8C%D0%BA%D0%B0_%D0%B1%D1%80%D0%B8%D0%B3%D0%B0%D0%B4%D0%B0_%D0%A1%D0%BA%D1%96%D1%84_%D0%9D%D0%93%D0%A3.png" },
+    ngu_18:{ name: "18-та бригада", type: "НГУ", totalMen: 2000, attack: 20, defense: 70, color: "unit-blue", logo: "https://upload.wikimedia.org/wikipedia/commons/6/64/18-%D1%82%D0%B0_%D0%A1%D0%BB%D0%BE%D0%B2%27%D1%8F%D0%BD%D1%81%D1%8C%D0%BA%D0%B0_%D0%B1%D1%80%D0%B8%D0%B3%D0%B0%D0%B4%D0%B0_%D0%9D%D0%93%D0%A3.png" },
+    ngu_17:{ name: "17-та бригада", type: "НГУ", totalMen: 2000, attack: 20, defense: 70, color: "unit-blue", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c6/17-%D1%82%D0%B0_%D0%9F%D0%BE%D0%BB%D1%82%D0%B0%D0%B2%D1%81%D1%8C%D0%BA%D0%B0_%D0%B1%D1%80%D0%B8%D0%B3%D0%B0%D0%B4%D0%B0_%D0%9D%D0%93%D0%A3_3052.png/960px-17-%D1%82%D0%B0_%D0%9F%D0%BE%D0%BB%D1%82%D0%B0%D0%B2%D1%81%D1%8C%D0%BA%D0%B0_%D0%B1%D1%80%D0%B8%D0%B3%D0%B0%D0%B4%D0%B0_%D0%9D%D0%93%D0%A3_3052.png" },
+    ngu_31:{ name: "31-та бригада", type: "НГУ", totalMen: 2000, attack: 20, defense: 70, color: "unit-blue", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/0/05/31POB.svg/960px-31POB.svg.png" },
+
     // Ворог
-    ENEMY:   { name: "МСБр (РФ)", type: "ENEMY", totalMen: 3000, attack: 45, defense: 65, color: "unit-red", logo: "" }
+    ENEMY:   { name: "МСБр (РФ)", type: "ENEMY", totalMen: 3000, attack: 45, defense: 65, color: "unit-red", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e0/Great_emblem_of_the_Russian_Ground_Forces.svg/960px-Great_emblem_of_the_Russian_Ground_Forces.svg.png" }
 };
 
 // === 6. ГЛОБАЛЬНИЙ ЧАС ТА МОБІЛІЗАЦІЯ ===
@@ -145,17 +232,102 @@ function getDistanceToEnemyLine(lat, lng, color) {
     } catch(e) { return 999; }
 }
 
-function generateTacticalZone(lng, lat, baseRadiusKm) {
-    const pts = [];
-    const steps = 7;
+// --- "Органічна" форма захопленої зони ---
+// Замість ідеального кола радіус "гуляє" по кількох синусоїдальних гармоніках
+// різної частоти й фази (кожна наступна — слабша за попередню). В сумі це дає
+// плавні, але нерівні виступи й вм'ятини — схоже на реальний клин просування,
+// а не на циркуль. Випадковість генерується один раз на подію захоплення і
+// "запікається" в фінальний полігон через turf.union, тому форма лишається
+// стабільною після перемальовки (redrawPolygons просто рендерить збережений GeoJSON).
+function organicRadiusProfile(irregularity = 0.4) {
+    const harmonics = [
+        { freq: 2 + Math.floor(Math.random() * 2), amp: irregularity,        phase: Math.random() * Math.PI * 2 },
+        { freq: 4 + Math.floor(Math.random() * 3), amp: irregularity * 0.55, phase: Math.random() * Math.PI * 2 },
+        { freq: 8 + Math.floor(Math.random() * 5), amp: irregularity * 0.25, phase: Math.random() * Math.PI * 2 },
+    ];
+    return angleRad => {
+        let r = 1;
+        harmonics.forEach(h => { r += h.amp * Math.sin(h.freq * angleRad + h.phase); });
+        return Math.max(0.3, r); // не даємо радіусу "провалитись" у нуль чи в мінус
+    };
+}
+
+function generateOrganicZone(lng, lat, baseRadiusKm, irregularity = 0.4) {
+    const steps = 28; // достатньо вершин для плавності без зайвого навантаження на turf
+    const profile = organicRadiusProfile(irregularity);
+    const origin = turf.point([lng, lat]);
+
+    const coords = [];
     for (let i = 0; i < steps; i++) {
-        const angle = (i * 360) / steps;
-        const r = baseRadiusKm * (0.5 + Math.random() * 0.7);
-        const dest = turf.destination(turf.point([lng, lat]), r, angle, { units: 'kilometers' });
-        pts.push(dest.geometry.coordinates);
+        const angleRad = (i / steps) * Math.PI * 2;
+        const r = baseRadiusKm * profile(angleRad);
+        const dest = turf.destination(origin, r, angleRad * 180 / Math.PI, { units: 'kilometers' });
+        coords.push(dest.geometry.coordinates);
     }
-    pts.push(pts[0]);
-    return turf.polygon([pts]);
+    coords.push(coords[0]);
+
+    let poly = turf.polygon([coords]);
+    // Легке згладжування, щоб вершини не виглядали "гранчасто"
+    try { poly = turf.buffer(poly, Math.max(baseRadiusKm * 0.05, 0.02), { units: 'kilometers' }); } catch(e) {}
+    return poly;
+}
+
+// Замість прямого "коридору" прориву — хвиляста лінія: кілька проміжних точок
+// з випадковим бічним зсувом, що загасає до нуля на обох кінцях (sin(π·t)),
+// тож коридор плавно "виростає" з ЛБЗ і так само плавно сходиться до вістря прориву.
+function makeWavyCorridor(startCoord, endCoord, amplitudeKm) {
+    const straight = turf.lineString([startCoord, endCoord]);
+    const startPt = turf.point(startCoord), endPt = turf.point(endCoord);
+    const distKm = turf.distance(startPt, endPt, { units: 'kilometers' });
+    const bearing = turf.bearing(startPt, endPt);
+    const segments = Math.min(6, Math.max(2, Math.round(distKm / 1.2)));
+
+    const points = [startCoord];
+    for (let i = 1; i < segments; i++) {
+        const t = i / segments;
+        const base = turf.along(straight, distKm * t, { units: 'kilometers' });
+        const lateral = (Math.random() - 0.5) * amplitudeKm * Math.sin(Math.PI * t);
+        const offset = turf.destination(base, lateral, bearing + 90, { units: 'kilometers' });
+        points.push(offset.geometry.coordinates);
+    }
+    points.push(endCoord);
+    return turf.lineString(points);
+}
+
+function generateTacticalZone(lng, lat, baseRadiusKm, color) {
+    const targetPt = turf.point([lng, lat]);
+    // "Голова" прориву — органічна пляма замість правильного кола
+    let poly = generateOrganicZone(lng, lat, baseRadiusKm, 0.4);
+
+    try {
+        let ownPoly = color === 'unit-blue' ? activeBluePolyGeoJSON : activeRedPolyGeoJSON;
+        if (ownPoly) {
+            let lines = turf.polygonToLine(ownPoly);
+            let nearest;
+            // Знаходимо найближчу точку нашої ЛБЗ
+            if (lines.type === 'FeatureCollection') {
+                let minDist = Infinity;
+                turf.featureEach(lines, function(feat) {
+                    try {
+                        let pt = turf.nearestPointOnLine(feat, targetPt);
+                        if (pt.properties.dist < minDist) { minDist = pt.properties.dist; nearest = pt; }
+                    } catch(e){}
+                });
+            } else {
+                nearest = turf.nearestPointOnLine(lines, targetPt);
+            }
+            
+            // Якщо прорив не далі ніж за 50 км від ЛБЗ — малюємо хвилястий "коридор" з'єднання
+            if (nearest && nearest.properties.dist < 50) { 
+                let corridor = makeWavyCorridor(nearest.geometry.coordinates, [lng, lat], baseRadiusKm * 0.5);
+                let wedge = turf.buffer(corridor, baseRadiusKm * 0.65, { units: 'kilometers', steps: 8 });
+                poly = turf.union(poly, wedge);
+            }
+        }
+    } catch(e) {
+        console.warn("Wedge error:", e);
+    }
+    return poly;
 }
 
 // === 8. ЗБЕРЕЖЕННЯ / ЗАВАНТАЖЕННЯ ===
@@ -279,35 +451,28 @@ function redrawPolygons() {
     );
 }
 
-function advanceFrontline(winnerLat, winnerLng, isBlueWinner, radiusKm = 2.0) {
+function advanceFrontline(winnerLat, winnerLng, color, radiusKm = 2.0) {
     if (!activeBluePolyGeoJSON || !activeRedPolyGeoJSON) return;
     
-    // Генеруємо тактичну зону з динамічним радіусом (залежить від кількості людей)
-    const captureZone  = generateTacticalZone(winnerLng, winnerLat, radiusKm);
-    
-    // Зона "відступу ворога" (clearanceZone) теж має бути пропорційною. 
-    // Мінімум 100 метрів (0.1), інакше полігони можуть накладатися
-    const clearanceRadius = Math.max(0.1, radiusKm * 0.5); 
+    const captureZone = generateTacticalZone(winnerLng, winnerLat, radiusKm, color);
+    const clearanceRadius = Math.max(0.1, Math.min(radiusKm * 0.3, 1.5)); 
     const clearanceZone = turf.buffer(captureZone, clearanceRadius, { units: 'kilometers' });
 
-    if (isBlueWinner) {
+    if (color === 'unit-blue') {
         activeBluePolyGeoJSON = turf.union(activeBluePolyGeoJSON, captureZone);
-        const cut = turf.difference(activeRedPolyGeoJSON, clearanceZone);
+        let cut = turf.difference(activeRedPolyGeoJSON, clearanceZone);
         if (cut) activeRedPolyGeoJSON = cut;
     } else {
         activeRedPolyGeoJSON = turf.union(activeRedPolyGeoJSON, captureZone);
-        const cut = turf.difference(activeBluePolyGeoJSON, clearanceZone);
+        let cut = turf.difference(activeBluePolyGeoJSON, clearanceZone);
         if (cut) activeBluePolyGeoJSON = cut;
     }
     if (activeGreyPolyGeoJSON) {
         activeGreyPolyGeoJSON = turf.union(activeGreyPolyGeoJSON, clearanceZone);
-        const c1 = turf.difference(activeGreyPolyGeoJSON, activeBluePolyGeoJSON);
-        if (c1) activeGreyPolyGeoJSON = c1;
-        const c2 = turf.difference(activeGreyPolyGeoJSON, activeRedPolyGeoJSON);
-        if (c2) activeGreyPolyGeoJSON = c2;
+        let c1 = turf.difference(activeGreyPolyGeoJSON, activeBluePolyGeoJSON); if (c1) activeGreyPolyGeoJSON = c1;
+        let c2 = turf.difference(activeGreyPolyGeoJSON, activeRedPolyGeoJSON); if (c2) activeGreyPolyGeoJSON = c2;
     }
-    redrawPolygons();
-    saveGameState();
+    redrawPolygons(); saveGameState();
 }
 
 // === 10. БРИГАДИ ===
@@ -379,6 +544,7 @@ function createBrigadeMarker(template, lat, lng, templateKey = null) {
     });
 
     activeBrigades.push(brigadeObj);
+    updateTotalTroopsUI();
     return brigadeObj;
 }
 
@@ -386,6 +552,7 @@ function updateBrigadeVisuals(brigadeObj) {
     if (brigadeObj && brigadeObj.marker) {
         brigadeObj.marker.setIcon(makeBrigadeIcon(brigadeObj.data));
     }
+    updateTotalTroopsUI();
 }
 
 function makeBrigadeIcon(data) {
@@ -420,7 +587,7 @@ function makeBrigadeIcon(data) {
     </div>`;
     
     return L.divIcon({ 
-        className: '', // Пустий клас, щоб Leaflet не додавав зміщення
+        className: 'leaflet-interactive', // Пустий клас, щоб Leaflet не додавав зміщення
         html, 
         iconSize: [0, 0], 
         iconAnchor: [0, 0] 
@@ -449,6 +616,23 @@ function getReservedMen(brigadeId) {
     const b = activeBrigades.find(b => b.data.id === brigadeId);
     if (!b) return 0;
     return b.data.currentMen - getDeployedMen(brigadeId);
+}
+
+// Сума currentMen лише по бригадах, що ЗАРАЗ стоять на мапі (activeBrigades).
+// Бригади в резерві (reserveBrigades) свідомо НЕ враховуються — щойно бригаду
+// відводять у тил (withdrawToReserve) або ще не виставляють на фронт, вона
+// випадає з цього підрахунку.
+function getDeployedTroopsTotal(color = 'unit-blue') {
+    return activeBrigades
+        .filter(b => !color || b.data.color === color)
+        .reduce((sum, b) => sum + (b.data.currentMen || 0), 0);
+}
+
+function updateTotalTroopsUI() {
+    // ВАЖЛИВО: id 'total-troops-val' — підстав сюди реальний id свого елемента
+    // з текстом "Загальна кількість військ", якщо в HTML він називається інакше.
+    const el = document.getElementById('total-troops-val');
+    if (el) el.innerText = getDeployedTroopsTotal('unit-blue').toLocaleString('uk-UA');
 }
 
 // === 11. ПАНЕЛЬ БРИГАДИ ===
@@ -536,49 +720,35 @@ function startSendDetachment(role) {
 }
 
 map.on('click', function(e) {
-    // 1. Якщо ми переміщуємо існуючий загін
     if (movingDetachment) {
-        const { detObj, brigade } = movingDetachment;
-        movingDetachment = null;
-        map.getContainer().style.cursor = '';
-        document.getElementById('combat-log').classList.add('hidden');
+        const { detObj, brigade } = movingDetachment; movingDetachment = null; map.getContainer().style.cursor = '';
         document.querySelectorAll('.det-marker').forEach(el => el.classList.remove('selected-det'));
-
-        // Знімаємо з попереднього укріплення
+        
+        const txt = document.getElementById('combat-text');
+        txt.innerHTML = `<span style="color:#00ff88">Загін переміщується на нову позицію...</span>`;
+        
         if (detObj.fortId) {
             const fort = getFortById(detObj.fortId);
-            if (fort) {
-                fort.garrisonIds = (fort.garrisonIds || []).filter(id => id !== detObj.id);
-                updateFortVisuals(fort);
-            }
+            if (fort) { fort.garrisonIds = (fort.garrisonIds || []).filter(id => id !== detObj.id); updateFortVisuals(fort); }
             detObj.fortId = null;
         }
-
-        // Рухаємо в нову точку (параметр false означає, що загін вже на мапі)
-        animateDetachmentMove(detObj, brigade, e.latlng.lat, e.latlng.lng, false);
+        animateDetachmentMove(detObj, brigade, e.latlng.lat, e.latlng.lng);
         return;
     }
-
-    // 2. Якщо ми відправляємо новий загін
     if (sendingDetachment) {
-        const { brigade, size, role } = sendingDetachment;
-        sendingDetachment = null;
-        map.getContainer().style.cursor = '';
-        document.getElementById('send-det-form').style.opacity = '1';
-        document.getElementById('combat-log').classList.add('hidden');
-
-        createDetachmentMarker(brigade, size, role, e.latlng.lat, e.latlng.lng);
-        updateBrigadePanel(brigade);
-        updateBrigadeVisuals(brigade);
-        saveGameState();
+        const { brigade, size, role } = sendingDetachment; sendingDetachment = null; map.getContainer().style.cursor = '';
+        document.getElementById('send-det-form').style.opacity = '1'; 
+        
+        // НЕ ХОВАЄМО ЛОГ! Просто оновлюємо текст:
+        const txt = document.getElementById('combat-text');
+        txt.innerHTML = `<span style="color:#00ff88">Загін висунувся на позицію...</span>`;
+        
+        createDetachmentMarker(brigade, size, role, e.latlng.lat, e.latlng.lng, undefined, undefined, true);
+        updateBrigadePanel(brigade); updateBrigadeVisuals(brigade); saveGameState();
         return;
     }
-
-    // 3. Якщо режим укріплень
     if (fortPlacementMode && fortPlacementType) {
-        L.DomEvent.stopPropagation(e);
-        createFortMarker(fortPlacementType, e.latlng.lat, e.latlng.lng);
-        saveGameState();
+        L.DomEvent.stopPropagation(e); createFortMarker(fortPlacementType, e.latlng.lat, e.latlng.lng); saveGameState();
     }
 });
 
@@ -597,7 +767,9 @@ map.on('contextmenu', function() {
     }
 });
 
-function createDetachmentMarker(brigade, size, role, lat, lng, existingId, fortId) {
+// Додано isNew parameter для виклику анімації
+// === 1. СТВОРЕННЯ МАРКЕРА (ОНОВЛЕНО) ===
+function createDetachmentMarker(brigade, size, role, lat, lng, existingId, fortId, isNew = false) {
     const id = existingId || `d_${_detIdCounter++}`;
     const color = brigade.data.color;
     const cssClass = color === 'unit-blue'
@@ -606,29 +778,25 @@ function createDetachmentMarker(brigade, size, role, lat, lng, existingId, fortI
 
     const roleIcon = role === 'defense' ? '🛡' : '⚔';
     
-    // Нульовий якір + ідеальне центрування контенту
     const icon = L.divIcon({
-        className: '', 
-        html: `
-        <div class="det-marker ${cssClass}" style="position: absolute; transform: translate(-50%, -50%); padding: 4px 6px; white-space: nowrap;">
-            <div style="text-align:center; line-height:1.1;">
-                <span style="font-size:12px;">${roleIcon}</span><br>
-                <span style="font-size:11px; font-weight:bold;">${size}</span>
-            </div>
-        </div>`,
-        iconSize: [0, 0], 
-        iconAnchor: [0, 0]
+        className: 'leaflet-interactive', 
+        html: `<div class="det-marker ${cssClass}" style="width: 40px; height: 40px; box-sizing: border-box; display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.1; margin: 0; padding: 0; pointer-events: auto;"><span style="font-size:12px; margin-bottom:2px;">${roleIcon}</span><span style="font-size:11px; font-weight:bold;">${size}</span></div>`,
+        iconSize: [40, 40], 
+        iconAnchor: [20, 20]
     });
 
-    const marker = L.marker([lat, lng], { icon }).addTo(map);
+    // Жорстко фіксуємо старт: якщо щойно створений - біля бригади. Якщо завантажений - на своєму місці.
+    const startLat = isNew ? brigade.lat : lat;
+    const startLng = isNew ? brigade.lng : lng;
+
+    const marker = L.marker([startLat, startLng], { icon }).addTo(map);
     marker.dragging.enable();
 
     const detObj = {
         id, brigadeId: brigade.data.id,
-        marker, lat, lng, size, role,
+        marker, lat: startLat, lng: startLng, size, role,
         fortId: fortId || null,
-        isBusy: false,
-        currentOrg: size
+        isBusy: false, currentOrg: size
     };
 
     marker.on('dragend', () => {
@@ -643,19 +811,37 @@ function createDetachmentMarker(brigade, size, role, lat, lng, existingId, fortI
         L.DomEvent.stopPropagation(e);
         if (selectedBrigade && selectedBrigade.data.color !== brigade.data.color) {
             initiateCombat(selectedBrigade, detObj);
+            return;
+        }
+
+        if (brigade.data.color === 'unit-blue') {
+            if (detObj.isBusy) {
+                alert('Загін веде бій! Накази ігноруються.');
+                return;
+            }
+            movingDetachment = { detObj, brigade };
+            map.getContainer().style.cursor = 'crosshair';
+            
+            const log = document.getElementById('combat-log');
+            const txt = document.getElementById('combat-text');
+            log.classList.remove('hidden');
+            txt.innerHTML = `<span style="color:#00ff88">Оберіть нову позицію для загону (${detObj.size} ос.).<br>ПКМ — скасувати.</span>`;
+            
+            document.querySelectorAll('.det-marker').forEach(el => el.classList.remove('selected-det'));
+            const iconEl = marker.getElement();
+            if (iconEl && iconEl.firstElementChild) iconEl.firstElementChild.classList.add('selected-det');
         }
     });
 
     activeDetachments.push(detObj);
 
-    if (role === 'defense' || role === 'assault') {
+    // Відправляємо у рух
+    if (isNew && (role === 'defense' || role === 'assault')) {
         animateDetachmentMove(detObj, brigade, lat, lng);
     }
 
     return detObj;
 }
-
-
 function updateDetachmentVisuals(detObj, brigade) {
     if (!detObj.marker) return;
     const color = brigade.data.color;
@@ -682,20 +868,7 @@ function updateDetachmentVisuals(detObj, brigade) {
     detObj.marker.setIcon(icon);
 }
 
-function checkDetachmentInFort(detObj) {
-    activeForts.forEach(fort => {
-        const dist = map.distance([detObj.lat, detObj.lng], [fort.lat, fort.lng]);
-        if (dist < 1500 && detObj.role === 'defense') { 
-            if (!fort.garrisonIds) fort.garrisonIds = [];
-            const slots = fortifications[fort.type]?.slots || 1;
-            if (fort.garrisonIds.length < slots && !fort.garrisonIds.includes(detObj.id)) {
-                fort.garrisonIds.push(detObj.id);
-                detObj.fortId = fort.id;
-                updateFortVisuals(fort);
-            }
-        }
-    });
-}
+function checkDetachmentInFort(detObj){}
 
 function getFortById(id) {
     return activeForts.find(f => f.id === id);
@@ -704,6 +877,9 @@ function getFortById(id) {
 function recallDetachment(detId) {
     const det = activeDetachments.find(d => d.id === detId);
     if (!det) return;
+
+    if (det.animTimer) { clearInterval(det.animTimer); det.animTimer = null; }
+    removeMoveArrow(det);
 
     if (det.fortId) {
         const fort = getFortById(det.fortId);
@@ -724,61 +900,153 @@ function recallDetachment(detId) {
     saveGameState();
 }
 
+// === 2a. ТАКТИЧНА СТРІЛКА (держак + вістря, як на оперативних картах) ===
+// Будує контур "стрілки-удару": пряму від start до end з трикутною головою на кінці.
+// Розміри держака/голови масштабуються від довжини маршруту, тож стрілка виглядає
+// пропорційно і на короткому, і на довгому плечі.
+function buildArrowOutline(startLat, startLng, endLat, endLng) {
+    const start = turf.point([startLng, startLat]);
+    const end   = turf.point([endLng, endLat]);
+    const distKm = Math.max(turf.distance(start, end, { units: 'kilometers' }), 0.01);
+    const bearing = turf.bearing(start, end);
+
+    const shaftHalfWidth = Math.max(0.04, Math.min(distKm * 0.10, 0.40));
+    const headLength     = Math.max(0.12, Math.min(distKm * 0.35, 1.10));
+    const headHalfWidth  = shaftHalfWidth * 2.3;
+    const shaftLenKm     = Math.max(0.001, distKm - headLength);
+
+    const shaftEnd = turf.destination(start, shaftLenKm, bearing, { units: 'kilometers' });
+    const off = (pt, dist, angleOffset) =>
+        turf.destination(pt, dist, bearing + angleOffset, { units: 'kilometers' }).geometry.coordinates;
+
+    const ring = [
+        off(start, shaftHalfWidth, 90),
+        off(shaftEnd, shaftHalfWidth, 90),
+        off(shaftEnd, headHalfWidth, 90),
+        end.geometry.coordinates,
+        off(shaftEnd, headHalfWidth, -90),
+        off(shaftEnd, shaftHalfWidth, -90),
+        off(start, shaftHalfWidth, -90)
+    ];
+
+    // GeoJSON віддає [lng,lat] — Leaflet хоче [lat,lng]
+    return ring.map(c => [c[1], c[0]]);
+}
+
+function createTacticalArrow(startLat, startLng, endLat, endLng, color) {
+    try {
+        const latlngs = buildArrowOutline(startLat, startLng, endLat, endLng);
+        return L.polygon(latlngs, {
+            color: '#111', weight: 1.5, opacity: 0.9,
+            fillColor: color, fillOpacity: 0.85,
+            lineJoin: 'round'
+        }).addTo(map);
+    } catch (e) {
+        // Фолбек на випадок виродженої геометрії (старт=ціль і т.п.)
+        return L.polyline([[startLat, startLng], [endLat, endLng]], {
+            color, weight: 4, opacity: 0.85
+        }).addTo(map);
+    }
+}
+
+function removeMoveArrow(detObj) {
+    if (detObj && detObj.moveLine) {
+        map.removeLayer(detObj.moveLine);
+        detObj.moveLine = null;
+    }
+}
+
+// === 2b. БРОНЕБІЙНА ФУНКЦІЯ АНІМАЦІЇ ЧЕРЕЗ SETINTERVAL ===
 function animateDetachmentMove(detObj, brigade, targetLat, targetLng) {
-    const startPos = brigade.marker.getLatLng();
-    detObj.marker.setLatLng(startPos);
+    // Очищуємо попередні таймери та стрілки, якщо загін вже рухався
+    if (detObj.animTimer) clearInterval(detObj.animTimer);
+    removeMoveArrow(detObj);
 
-    const lineColor = brigade.data.color === 'unit-blue' ? '#00ff88' : '#ff6644';
-    const moveLine = L.polyline([startPos, [targetLat, targetLng]], {
-        color: lineColor, dashArray: '4,8', weight: 2, opacity: 0.6
-    }).addTo(map);
+    const startPos = detObj.marker.getLatLng();
+    detObj.lat = startPos.lat;
+    detObj.lng = startPos.lng;
 
-    const speed = 0.00015; // Швидкість переміщення (змініть, якщо треба швидше/повільніше)
-    let lastTime = performance.now();
+    // Малюємо тактичну стрілку маршруту/удару. Вона статична і лишається на мапі,
+    // поки не завершиться сам бій або зачистка (прибирається з runCombat/startZoneClearing/арешту маршу).
+    const arrowColor = brigade.data.color === 'unit-blue' ? '#00ff88' : '#ff6644';
+    detObj.moveLine = createTacticalArrow(startPos.lat, startPos.lng, targetLat, targetLng, arrowColor);
 
-    function step(now) {
-        const dt = now - lastTime;
-        lastTime = now;
-        
+    const speed = 0.005; // Фіксована швидкість (близько 500м за крок)
+    
+    // Запускаємо чіткий інтервал оновлення позиції (кожні 30 мілісекунд)
+    detObj.animTimer = setInterval(() => {
         const cur = detObj.marker.getLatLng();
-        
-        // Вираховуємо різницю в географічних координатах
         const dLat = targetLat - cur.lat;
         const dLng = targetLng - cur.lng;
-        const distanceInCoords = Math.sqrt(dLat * dLat + dLng * dLng);
-        
-        // Відстань, яку загін пройде за поточний мікро-кадр
-        const stepSize = speed * dt;
+        const dist = Math.sqrt(dLat * dLat + dLng * dLng);
 
-        // ЗАПОБІЖНИК: якщо крок більший за залишок шляху — примагнічуємо маркер рівно в ціль
-        if (distanceInCoords <= stepSize) {
-            map.removeLayer(moveLine);
+        // 1. ПЕРЕВІРКА ПЕРЕХОПЛЕННЯ ВОРОГОМ
+        let interceptedBy = null;
+        for (let enemy of activeDetachments) {
+            if (enemy.isBusy || enemy.role !== 'defense') continue; // Ворог має бути вільний і на обороні
+            
+            const b = activeBrigades.find(br => br.data.id === enemy.brigadeId);
+            if (!b || b.data.color === brigade.data.color) continue; // Ігноруємо своїх
+            
+            const ePos = enemy.marker.getLatLng();
+            // Якщо ворог знаходиться ближче ніж 1.5 км
+            if (map.distance(cur, ePos) < 1500) {
+                interceptedBy = enemy; 
+                break;
+            }
+        }
+
+        if (interceptedBy) {
+            clearInterval(detObj.animTimer);
+            detObj.animTimer = null;
+            // Стрілку НЕ прибираємо — вона лишається на мапі на час бою (приберe runCombat)
+            
+            detObj.lat = cur.lat; 
+            detObj.lng = cur.lng;
+            detObj.isBusy = true; 
+            interceptedBy.isBusy = true;
+            
+            runCombat(detObj, interceptedBy); // ЗАПУСК БОЮ ЗІ ЗВЕДЕННЯМ
+            return;
+        }
+
+        // 2. ПРИБУТТЯ НА ЦІЛЬОВУ ТОЧКУ
+        if (dist <= speed) {
+            clearInterval(detObj.animTimer);
+            detObj.animTimer = null;
+            
             detObj.marker.setLatLng([targetLat, targetLng]);
-            detObj.lat = targetLat;
+            detObj.lat = targetLat; 
             detObj.lng = targetLng;
             
-            // Логіка після прибуття
             checkDetachmentInFort(detObj);
+            
+            // Запускаємо зачистку/штурм
             if (detObj.role === 'assault') {
+                // Стрілка лишається — її приберуть runCombat() або startZoneClearing() по завершенню
                 startDetachmentAssault(detObj, brigade);
+            } else {
+                // Оборонний загін прибув на позицію без бою — бою не буде, стрілка більше не потрібна
+                removeMoveArrow(detObj);
+                setTimeout(() => {
+                    if (!activeDetachments.some(d => d.isBusy)) {
+                        document.getElementById('combat-log').classList.add('hidden');
+                    }
+                }, 2000);
             }
             saveGameState();
             return;
         }
 
-        // Інакше — рухаємося строго по прямій до цілі без відхилень
-        const ratio = stepSize / distanceInCoords;
+        // 3. РУХ (рухається лише маркер; стрілка лишається незмінною до кінця бою)
+        const ratio = speed / dist;
         const newLat = cur.lat + dLat * ratio;
         const newLng = cur.lng + dLng * ratio;
         
         detObj.marker.setLatLng([newLat, newLng]);
-        moveLine.setLatLngs([[newLat, newLng], [targetLat, targetLng]]);
         
-        requestAnimationFrame(step);
-    }
-    requestAnimationFrame(step);
+    }, 30);
 }
-
 // === 13. БІЙ ===
 function initiateCombat(attackerBrigade, defenderDet) {
     if (defenderDet.isBusy) return;
@@ -799,82 +1067,77 @@ function initiateCombat(attackerBrigade, defenderDet) {
 }
 
 function startDetachmentAssault(detObj, brigade) {
+    // Шукаємо ворога поруч (радіус 2 км)
     const enemy = activeDetachments.find(d => {
-        const b = activeBrigades.find(b => b.data.id === d.brigadeId);
+        const b = activeBrigades.find(br => br.data.id === d.brigadeId);
         if (!b) return false;
         if (b.data.color === brigade.data.color) return false;
+        if (d.isBusy) return false;
         const dist = map.distance([detObj.lat, detObj.lng], [d.lat, d.lng]);
-        return dist < 2000 && !d.isBusy;
+        return dist < 2000;
     });
+
     if (enemy) {
+        // Якщо знайшли ворога — ініціюємо бій
         detObj.isBusy = true;
         enemy.isBusy = true;
         runCombat(detObj, enemy);
     } else {
+        // Якщо ворога немає — починаємо захоплення території
+        detObj.isBusy = true; // Блокуємо, щоб гравець не переривав процес
         startZoneClearing(detObj, brigade);
     }
 }
 
 function runCombat(attackerDet, defenderDet) {
-    const attBrigade  = activeBrigades.find(b => b.data.id === attackerDet.brigadeId);
-    const defBrigade  = activeBrigades.find(b => b.data.id === defenderDet.brigadeId);
+    const attBrigade = activeBrigades.find(b => b.data.id === attackerDet.brigadeId);
+    const defBrigade = activeBrigades.find(b => b.data.id === defenderDet.brigadeId);
     if (!attBrigade || !defBrigade) return;
 
-    let attOrg = attackerDet.size;
-    let defOrg = defenderDet.size;
-
+    let attOrg = attackerDet.size; let defOrg = defenderDet.size;
     let fortBonus = 1.0;
-    if (defenderDet.fortId) {
-        const fort = getFortById(defenderDet.fortId);
-        if (fort) fortBonus = fortifications[fort.type]?.defBonus || 1.0;
-    }
+    if (defenderDet.fortId) { const fort = getFortById(defenderDet.fortId); if (fort) fortBonus = fortifications[fort.type]?.defBonus || 1.0; }
 
-    const attData = attBrigade.data;
-    const defData = defBrigade.data;
-
-    const log = document.getElementById('combat-log');
-    const txt = document.getElementById('combat-text');
+    const attData = attBrigade.data; const defData = defBrigade.data;
+    const log = document.getElementById('combat-log'); const txt = document.getElementById('combat-text');
     log.classList.remove('hidden');
     let hoursElapsed = 0;
 
     const interval = setInterval(() => {
-        hoursElapsed++;
+        const attStillExists = activeDetachments.some(d => d.id === attackerDet.id);
+        const defStillExists = activeDetachments.some(d => d.id === defenderDet.id);
 
-        let attPow = attData.attack;
-        let defPow = defData.defense * fortBonus; 
+        if (!attStillExists || !defStillExists) {
+            clearInterval(interval);
+            if (attStillExists) { attackerDet.isBusy = false; removeMoveArrow(attackerDet); }
+            if (defStillExists) { defenderDet.isBusy = false; removeMoveArrow(defenderDet); }
+            if (!activeDetachments.some(d => d.isBusy)) log.classList.add('hidden');
+            return;
+        }
 
-        if (attData.daysOnFront > 60) attPow *= 0.6;
-        if (defData.daysOnFront > 60) defPow *= 0.6;
-        if (attData.type === 'SSO') { attPow *= hoursElapsed <= 48 ? 1.5 : 0.5; }
+        hoursElapsed++; log.classList.remove('hidden');
 
-        const rngAtt = 0.8 + Math.random() * 0.4;
-        const rngDef = 0.8 + Math.random() * 0.4;
-
-        const attackerCasualties = (defPow * rngDef * fortBonus) / 12;
-        const defenderCasualties = (attPow * rngAtt) / (12 * fortBonus);
-
-        const attLoss = Math.round(attackerCasualties);
-        const defLoss = Math.round(defenderCasualties);
-
-        defOrg -= defLoss;
-        attOrg -= attLoss;
+        let attPow = attData.attack; let defPow = defData.defense * fortBonus; 
+        if (attData.daysOnFront > 60) attPow *= 0.6; if (defData.daysOnFront > 60) defPow *= 0.6;
         
-        // ВІДНІМАЄМО ВТРАТИ ВІД БРИГАД
+        let sizeRatio = attackerDet.size / Math.max(1, defenderDet.size);
+        let attAdvantage = Math.min(2.0, Math.max(0.5, sizeRatio)); 
+
+        const rngAtt = 0.8 + Math.random() * 0.4; const rngDef = 0.8 + Math.random() * 0.4;
+        const attackerCasualties = (defPow * rngDef * fortBonus) / (12 * attAdvantage);
+        const defenderCasualties = (attPow * rngAtt * attAdvantage) / (12 * fortBonus);
+
+        const attLoss = Math.round(attackerCasualties); const defLoss = Math.round(defenderCasualties);
+        defOrg -= defLoss; attOrg -= attLoss;
+        
         attBrigade.data.currentMen = Math.max(0, attBrigade.data.currentMen - attLoss);
         defBrigade.data.currentMen = Math.max(0, defBrigade.data.currentMen - defLoss);
         
-        attackerDet.size = Math.max(0, Math.floor(attOrg));
-        defenderDet.size = Math.max(0, Math.floor(defOrg));
+        attackerDet.size = Math.max(0, Math.floor(attOrg)); defenderDet.size = Math.max(0, Math.floor(defOrg));
 
-        // ОНОВЛЮЄМО ВІЗУАЛ НА КАРТІ В РЕАЛЬНОМУ ЧАСІ
-        updateBrigadeVisuals(attBrigade);
-        updateBrigadeVisuals(defBrigade);
-        updateDetachmentVisuals(attackerDet, attBrigade);
-        updateDetachmentVisuals(defenderDet, defBrigade);
-        
-        // Динамічно оновлюємо відкриті меню
-        if (selectedBrigade) updateBrigadePanel(selectedBrigade);
-        if (selectedFort) openFortInfoPanel(selectedFort);
+        updateBrigadeVisuals(attBrigade); updateBrigadeVisuals(defBrigade);
+        updateDetachmentVisuals(attackerDet, attBrigade); updateDetachmentVisuals(defenderDet, defBrigade);
+        if (selectedBrigade) updateBrigadePanel(selectedBrigade); if (selectedFort) openFortInfoPanel(selectedFort);
 
         const attPct = Math.max(0, attOrg / attackerDet.currentOrg * 100).toFixed(0);
         const defPct = Math.max(0, defOrg / defenderDet.currentOrg * 100).toFixed(0);
@@ -884,49 +1147,43 @@ function runCombat(attackerDet, defenderDet) {
         🛡 ${defBrigade.data.name} — ${defenderDet.size} ос. [${defPct}%]<br>
         ${defenderDet.fortId ? `Укриття: ${fortifications[getFortById(defenderDet.fortId).type].name} ×${fortBonus}` : 'Бій у полі'}`;
 
-        // ЛОГІКА ВТЕЧІ/ЗДАЧІ В ПОЛОН (<= 10% від початкового складу)
-        let attDefeated = attOrg <= (0.1 * attackerDet.currentOrg) || attOrg <= 0;
-        let defDefeated = defOrg <= (0.1 * defenderDet.currentOrg) || defOrg <= 0;
+        let attRetreatThreshold = 0.60; let defRetreatThreshold = 0.25; 
+        if (defenderDet.fortId) defRetreatThreshold = 0.15; 
+        if (attData.type === 'SSO' || attData.type === 'НГУ') attRetreatThreshold = 0.40; 
+
+        let attPctVal = attOrg / attackerDet.currentOrg; let defPctVal = defOrg / defenderDet.currentOrg;
+        let attDefeated = attPctVal <= attRetreatThreshold || attOrg <= 0;
+        let defDefeated = defPctVal <= defRetreatThreshold || defOrg <= 0;
 
         if (attDefeated || defDefeated) {
             clearInterval(interval);
-            
-            const attackerWon = !attDefeated;
+            let attackerWon = !attDefeated;
             const winner = attackerWon ? attBrigade : defBrigade;
             const loser = attackerWon ? defBrigade : attBrigade;
             const loserDet = attackerWon ? defenderDet : attackerDet;
             const winnerDet = attackerWon ? attackerDet : defenderDet;
 
-            let resolutionText = "повністю знищено 💀";
+            let resolutionText = "";
+            if (attDefeated && !defDefeated) { resolutionText = "наступ захлинувся, загін відступив 🏃"; } 
+            else if (defDefeated && !attDefeated) {
+                if (loserDet.size > 0 && Math.random() > 0.6) { resolutionText = "було розбито або здалося в полон 🏳️"; loser.data.currentMen = Math.max(0, loser.data.currentMen - loserDet.size); loserDet.size = 0; updateBrigadeVisuals(loser); } 
+                else { resolutionText = "не витримав натиску і відступив із позицій 🏃"; }
+            } else { resolutionText = "обидві сторони понесли величезні втрати і відступили 🚑"; attackerWon = false; }
+
+            txt.innerHTML += `<br><br><span style="color:yellow">🏆 ${winner.data.name} втримала позиції/перемогла!</span><br><span style="color:#ff8888">Загін противника: ${resolutionText}.</span>`;
+
+            loserDet.isBusy = false; recallDetachment(loserDet.id);
+            winnerDet.isBusy = false; 
+            removeMoveArrow(winnerDet); // Бій завершено — стрілка більше не потрібна
             
-            if (loserDet.size > 0) {
-                if (Math.random() > 0.5) {
-                    resolutionText = "здався в полон 🏳️";
-                    // Якщо полон - люди зникають назавжди
-                    loser.data.currentMen = Math.max(0, loser.data.currentMen - loserDet.size);
-                    loserDet.size = 0; 
-                } else {
-                    resolutionText = "втік з поля бою 🏃";
-                    // Якщо втеча - залишки людей повертаються в бригаду (нічого не віднімаємо)
-                }
+            if (attackerWon && winnerDet.role === 'assault') {
+                // НОВА ФОРМУЛА ПРОРИВУ
+                let captureRadius = Math.sqrt(winnerDet.size) / 4;
+                captureRadius = Math.max(0.2, Math.min(captureRadius, 15.0));
+                advanceFrontline(winnerDet.lat, winnerDet.lng, winner.data.color, captureRadius);
             }
 
-            txt.innerHTML += `<br><br><span style="color:yellow">🏆 ${winner.data.name} перемогла!</span><br><span style="color:#ff8888">Загін ворога ${resolutionText}.</span>`;
-
-            // Ті, хто програв (втекли/полон) - прибираються з карти
-            loserDet.isBusy = false;
-            recallDetachment(loserDet.id);
-
-            // Переможець залишається і захоплює зону (якщо він атакував)
-            winnerDet.isBusy = false;
-            if (attackerWon) {
-                advanceFrontline(winnerDet.lat, winnerDet.lng, winner.data.color === 'unit-blue');
-            }
-
-            setTimeout(() => {
-                log.classList.add('hidden');
-                saveGameState();
-            }, 6000);
+            setTimeout(() => { if (!activeDetachments.some(d => d.isBusy)) log.classList.add('hidden'); saveGameState(); }, 6000);
         }
     }, 1000);
 }
@@ -939,13 +1196,30 @@ function startZoneClearing(detObj, brigade) {
     let hours = 0;
 
     const interval = setInterval(() => {
+        // === ВИПРАВЛЕННЯ БАГУ: Перевірка на відкликання ===
+        const detStillExists = activeDetachments.some(d => d.id === detObj.id);
+        if (!detStillExists) {
+            clearInterval(interval);
+            log.classList.add('hidden');
+            return;
+        }
+
         hours++;
         txt.innerHTML = `<b>Зачистка</b> | ${hours}/${timeRequired} год.<br>${brigade.data.name} — ${detObj.size} ос.`;
 
         if (hours >= timeRequired) {
             clearInterval(interval);
+            
+            // === ВИПРАВЛЕННЯ БАГУ: Знімаємо блокування команд ===
+            detObj.isBusy = false; 
+            removeMoveArrow(detObj); // Зачистку завершено — стрілка більше не потрібна
+
             txt.innerHTML += `<br><span style="color:yellow">✅ Захоплено!</span>`;
-            advanceFrontline(detObj.lat, detObj.lng, brigade.data.color === 'unit-blue');
+            
+            let captureRadius = Math.sqrt(detObj.size) / 25;
+            captureRadius = Math.max(0.05, Math.min(captureRadius, 4.0));
+            
+            advanceFrontline(detObj.lat, detObj.lng, brigade.data.color, captureRadius);
             setTimeout(() => log.classList.add('hidden'), 4000);
         }
     }, 1000);
@@ -1171,6 +1445,7 @@ function withdrawToReserve() {
 
     map.removeLayer(b.marker);
     activeBrigades = activeBrigades.filter(x => x.data.id !== b.data.id);
+    updateTotalTroopsUI();
 
     closeBrigadePanel();
     updateBrigadeMenuButtons();
@@ -1261,13 +1536,13 @@ function runEnemyAI() {
                     // Зсуваємо ціль трохи вбік, щоб загони не йшли гуськом в одну піксельну точку
                     const tLat = target.lat + (Math.random() - 0.5) * 0.02;
                     const tLng = target.lng + (Math.random() - 0.5) * 0.02;
-                    createDetachmentMarker(brigade, size, 'assault', tLat, tLng);
+                    createDetachmentMarker(brigade, size, 'assault', tLat, tLng, undefined, undefined, true);
                 }
             } else {
                 // ОБОРОНА: Розставляємо захисні загони навколо своєї бригади
                 const dLat = brigade.lat + (Math.random() - 0.5) * 0.1;
                 const dLng = brigade.lng + (Math.random() - 0.5) * 0.1;
-                createDetachmentMarker(brigade, size, 'defense', dLat, dLng);
+                createDetachmentMarker(brigade, size, 'defense', dLat, dLng, undefined, undefined, true);
             }
         }
     });
@@ -1299,3 +1574,64 @@ function spawnEnemyAIBigade() {
 if (!loadGameState()) {
     loadScenario('global');
 }
+
+// ============================================================
+// ТИМЧАСОВИЙ ІНСТРУМЕНТ ДЛЯ МАЛЬОВКИ ЛБЗ
+// ============================================================
+
+// 1. Створюємо інтерфейс кнопок і вішаємо поверх мапи
+const editorDiv = document.createElement('div');
+editorDiv.style.cssText = "position:absolute; top:10px; left:50px; z-index:9999; background:rgba(0,0,0,0.8); padding:10px; border:2px solid #00ff88; border-radius:8px; color:white;";
+editorDiv.innerHTML = `
+    <b style="color:#00ff88;">Редактор ЛБЗ</b><br><br>
+    <button id="btn-lbz-toggle" style="padding:5px; cursor:pointer; background:#444; color:white; border:1px solid #777;">Почати малювати</button><br><br>
+    <button id="btn-lbz-print" style="padding:5px; cursor:pointer; background:#003366; color:white; border:1px solid #0047AB;">Вивести в консоль</button><br><br>
+    <button id="btn-lbz-clear" style="padding:5px; cursor:pointer; background:#800000; color:white; border:1px solid #B30000;">Очистити лінію</button>
+`;
+document.body.appendChild(editorDiv);
+
+// 2. Логіка малювання
+let lbzCoords = [];
+let lbzLine = L.polyline([], {color: '#00ff88', weight: 4, dashArray: '5, 10'}).addTo(map);
+let isLbzDrawing = false;
+
+document.getElementById('btn-lbz-toggle').onclick = () => {
+    isLbzDrawing = !isLbzDrawing;
+    document.getElementById('btn-lbz-toggle').innerText = isLbzDrawing ? 'Зупинити малювання' : 'Почати малювати';
+    document.getElementById('btn-lbz-toggle').style.background = isLbzDrawing ? '#00ff88' : '#444';
+    document.getElementById('btn-lbz-toggle').style.color = isLbzDrawing ? '#000' : '#fff';
+    if(isLbzDrawing) alert("Клікай по мапі (бажано з Півдня на Північ).\nСлідкуй, щоб не було обрано бригад чи загонів.");
+};
+
+map.on('click', function(e) {
+    if (!isLbzDrawing) return;
+    
+    // Округлюємо до 3 знаків (цього достатньо для тактичної мапи)
+    let lat = parseFloat(e.latlng.lat.toFixed(3));
+    let lng = parseFloat(e.latlng.lng.toFixed(3));
+    
+    lbzCoords.push([lat, lng]);
+    lbzLine.setLatLngs(lbzCoords);
+});
+
+document.getElementById('btn-lbz-print').onclick = () => {
+    if (lbzCoords.length === 0) return alert("Лінія порожня!");
+    
+    // Форматуємо масив так, щоб його зручно було вставити в код
+    let result = "[\n";
+    let chunks = [];
+    for(let i = 0; i < lbzCoords.length; i += 5) {
+        let chunk = lbzCoords.slice(i, i+5).map(c => `[${c[0]}, ${c[1]}]`).join(', ');
+        chunks.push(`    ${chunk}`);
+    }
+    result += chunks.join(",\n") + "\n];";
+    
+    console.log("=== СКОПІЮЙ ЦЕЙ КОД ===");
+    console.log(result);
+    alert("Готово! Натисни F12, відкрий вкладку Console (Консоль) і скопіюй масив.");
+};
+
+document.getElementById('btn-lbz-clear').onclick = () => {
+    lbzCoords = [];
+    lbzLine.setLatLngs([]);
+};
