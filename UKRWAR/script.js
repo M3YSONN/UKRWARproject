@@ -6,6 +6,9 @@
 let globalManpowerPool = 0;   // Резерв ставки гравця
 let aiManpowerPool     = 50000; // Резерв ставки ворога (ШІ)
 let reserveBrigades    = {};
+let activeBattalions   = [];   // Усі батальйони на мапі (обидва боки)
+let selectedBattalion  = null;
+let _battalionIdCounter = 1;
 
 const googleHybrid = L.tileLayer(
     'https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}',
@@ -17,70 +20,124 @@ const map = L.map('map', {
 });
 L.control.zoom({ position: 'topright' }).addTo(map);
 
-// === 2. ЛБЗ ===
-
-// === 2.1. СЕГМЕНТИ ЛБЗ (З Півдня на Північ) ===
-const frontSegments = {
-    kherson: { // Херсонський (від Кінбурна до Каховського водосховища)
-        blue: [[46.52, 31.57], [46.63, 32.61], [47.20, 34.00]],
-        red:  [[46.49, 31.60], [46.60, 32.64], [47.17, 34.04]]
+// === 1.1 НАПРЯМКИ ЛБЗ (для зручного редагування за зведеннями Генштабу/DeepState) ===
+// Порядок — з ПІВДНЯ на ПІВНІЧ, так само як в оригінальному суцільному масиві.
+// Кожен напрямок — окремий шматок СИНЬОЇ (наша територія) і ЧЕРВОНОЇ (ворог) ліній.
+//
+// ⚠️ "label" — орієнтовні підписи за трьома відомими прив'язками з твоїх же сценаріїв
+// (kherson/avdiivka/bakhmut center нижче співпадають з точками на лінії). Решта назв —
+// приблизні за географією і ЇХ ТРЕБА ЗВІРИТИ й за потреби перейменувати під те, що
+// бачиш на DeepState/у зведеннях Генштабу — ключі (key) можеш лишити як є, вони ніде
+// в логіці гри не використовуються, це просто зручні "закладки" для пошуку в коді.
+//
+// ПРИ РЕДАГУВАННІ КООРДИНАТ: остання точка одного напрямку має ЗБІГАТИСЯ З
+// першою точкою наступного — інакше на стику утвориться розрив лінії фронту.
+// Дублювати її саму при редагуванні не потрібно — assembleFrontline() сама
+// прибирає повтор стикової точки при склеюванні.
+const frontDirections = [
+    {
+        key: "kherson",
+        label: "Херсонський напрямок",
+        blue: [[46.52,31.57],[46.63,32.61]],
+        red:  [[46.49,31.60],[46.60,32.64]]
     },
-    zaporizhzhia: { // Запорізький (Кам'янське - Роботине - Гуляйполе)
-        blue: [[47.45, 35.30], [47.45, 35.80], [47.75, 36.80]],
-        red:  [[47.42, 35.32], [47.42, 35.82], [47.72, 36.82]]
+    {
+        key: "zaporizhzhia",
+        label: "Запорізький / Оріхівський напрямок",
+        blue: [[46.63,32.61],[47.20,34.00]],
+        red:  [[46.60,32.64],[47.17,34.04]]
     },
-    donetsk_south: { // Вугледарський / Курахівський
-        blue: [[47.85, 37.45], [48.15, 37.75]],
-        red:  [[47.82, 37.48], [48.13, 37.78]]
+    {
+        key: "velyka_novosilka",
+        label: "Гуляйпільський / В.Новосілка напрямок",
+        blue: [[47.20,34.00],[47.45,35.30]],
+        red:  [[47.17,34.04],[47.42,35.32]]
     },
-    pokrovsk_toretsk: { // Покровський, Торецький, Часів Яр
-        blue: [[48.60, 37.95], [48.95, 38.25]],
-        red:  [[48.58, 37.98], [48.93, 38.29]]
+    {
+        key: "kurakhove",
+        label: "Вугледарський / Курахівський напрямок",
+        blue: [[47.45,35.30],[47.45,35.80]],
+        red:  [[47.42,35.32],[47.42,35.82]]
     },
-    luhansk_kharkiv: { // Лиман, Куп'янськ, Вовчанськ
-        blue: [[49.40, 38.00], [49.85, 37.80], [50.35, 36.90]],
-        red:  [[49.38, 38.04], [49.83, 37.84], [50.36, 36.94]]
+    {
+        key: "pokrovsk",
+        label: "Покровський / Мар'їнський напрямок",
+        blue: [[47.45,35.80],[47.75,36.80]],
+        red:  [[47.42,35.82],[47.72,36.82]]
+    },
+    {
+        key: "avdiivka",
+        label: "Авдіївський напрямок",
+        blue: [[47.75,36.80],[47.85,37.45],[48.15,37.75]],
+        red:  [[47.72,36.82],[47.82,37.48],[48.13,37.78]]
+    },
+    {
+        key: "bakhmut",
+        label: "Бахмутський / Часівоярський напрямок",
+        blue: [[48.15,37.75],[48.60,37.95]],
+        red:  [[48.13,37.78],[48.58,37.98]]
+    },
+    {
+        key: "lyman",
+        label: "Лиманський / Сіверський напрямок",
+        blue: [[48.60,37.95],[48.95,38.25]],
+        red:  [[48.58,37.98],[48.93,38.29]]
+    },
+    {
+        key: "kupiansk",
+        label: "Куп'янський напрямок",
+        blue: [[48.95,38.25],[49.40,38.00]],
+        red:  [[48.93,38.29],[49.38,38.04]]
+    },
+    {
+        key: "kharkiv",
+        label: "Харківський / Вовчанський напрямок",
+        blue: [[49.40,38.00],[49.85,37.80],[50.35,36.90]],
+        red:  [[49.38,38.04],[49.83,37.84],[50.36,36.94]]
     }
-    // Сюди легко додати kursk: { blue: [...], red: [...] }
-};
-
-// === 2.2. ФУНКЦІЯ ЗБИРАННЯ ФРОНТУ ===
-function buildFrontline(color, segmentsOrder) {
-    let combinedLine = [];
-    for (const segmentName of segmentsOrder) {
-        if (frontSegments[segmentName] && frontSegments[segmentName][color]) {
-            // Додаємо всі точки поточного сегмента до загального масиву
-            combinedLine.push(...frontSegments[segmentName][color]);
-        }
-    }
-    return combinedLine;
-}
-
-// Задаємо порядок зшивання (від гирла Дніпра до кордону на Слобожанщині)
-const mainFrontOrder = [
-    'kherson', 
-    'zaporizhzhia', 
-    'donetsk_south', 
-    'pokrovsk_toretsk', 
-    'luhansk_kharkiv'
 ];
 
+// Склеює напрямки в один безперервний масив координат — точно той формат,
+// який вже їсть увесь решта коду (turfify(), loadScenario() тощо). Повторну
+// стикову точку прибирає автоматично, тож у даних вище її дублювати не треба.
+function assembleFrontline(directions, side) {
+    let coords = [];
+    directions.forEach(dir => {
+        const seg = dir[side];
+        const last = coords[coords.length - 1];
+        const isDuplicate = last && last[0] === seg[0][0] && last[1] === seg[0][1];
+        coords = coords.concat(isDuplicate ? seg.slice(1) : seg);
+    });
+    return coords;
+}
 
-// === 2.3. СЦЕНАРІЇ ===
+// Дев-перевірка цілісності: якщо після редагування одного напрямку забув
+// підправити сусідній і стик "розійшовся" — побачиш попередження в консолі
+// браузера одразу при завантаженні сторінки, а не шукатимеш розрив на мапі.
+function checkFrontDirectionsContinuity(directions) {
+    ['blue', 'red'].forEach(side => {
+        for (let i = 0; i < directions.length - 1; i++) {
+            const a = directions[i][side], b = directions[i + 1][side];
+            const aEnd = a[a.length - 1], bStart = b[0];
+            if (aEnd[0] !== bStart[0] || aEnd[1] !== bStart[1]) {
+                console.warn(`⚠️ Розрив ЛБЗ (${side}) між "${directions[i].label}" і "${directions[i + 1].label}": [${aEnd}] ≠ [${bStart}]`);
+            }
+        }
+    });
+}
+checkFrontDirectionsContinuity(frontDirections);
+
+// === 2. СЦЕНАРІЇ ===
 const scenarios = {
     global: {
         center: [48.5, 31.2], zoom: 6,
-        // Викликаємо зшивач для синьої та червоної ліній
-        frontlineBlue: buildFrontline('blue', mainFrontOrder),
-        frontlineRed:  buildFrontline('red', mainFrontOrder),
-        
+        frontlineBlue: assembleFrontline(frontDirections, 'blue'),
+        frontlineRed:  assembleFrontline(frontDirections, 'red'),
         redBorders:  [[50.35,36.90],[50.00,40.00],[47.00,39.00],[45.30,36.50],[44.30,33.50],[46.00,31.57]],
         blueBorders: [[50.35,36.90],[52.30,33.00],[51.50,23.80],[48.40,22.15],[45.30,29.60],[46.52,31.57]]
     },
     bakhmut: {
         center: [48.59,38.00], zoom: 12,
-        // Для локальних сценаріїв можна залишити хардкод, 
-        // або створити окремий масив: buildFrontline('blue', ['pokrovsk_toretsk'])
         frontlineBlue: [[48.52,37.92],[48.56,37.95],[48.59,37.97],[48.62,37.99],[48.66,37.98]],
         frontlineRed:  [[48.51,37.95],[48.55,37.98],[48.58,38.00],[48.61,38.02],[48.65,38.01]],
         redBorders:  [[48.65,38.20],[48.51,38.20]],
@@ -295,42 +352,182 @@ function makeWavyCorridor(startCoord, endCoord, amplitudeKm) {
 }
 
 function generateTacticalZone(lng, lat, baseRadiusKm, color) {
-    const targetPt = turf.point([lng, lat]);
-    // "Голова" прориву — органічна пляма замість правильного кола
-    let poly = generateOrganicZone(lng, lat, baseRadiusKm, 0.4);
-
-    try {
-        let ownPoly = color === 'unit-blue' ? activeBluePolyGeoJSON : activeRedPolyGeoJSON;
-        if (ownPoly) {
-            let lines = turf.polygonToLine(ownPoly);
-            let nearest;
-            // Знаходимо найближчу точку нашої ЛБЗ
-            if (lines.type === 'FeatureCollection') {
-                let minDist = Infinity;
-                turf.featureEach(lines, function(feat) {
-                    try {
-                        let pt = turf.nearestPointOnLine(feat, targetPt);
-                        if (pt.properties.dist < minDist) { minDist = pt.properties.dist; nearest = pt; }
-                    } catch(e){}
-                });
-            } else {
-                nearest = turf.nearestPointOnLine(lines, targetPt);
-            }
-            
-            // Якщо прорив не далі ніж за 50 км від ЛБЗ — малюємо хвилястий "коридор" з'єднання
-            if (nearest && nearest.properties.dist < 50) { 
-                let corridor = makeWavyCorridor(nearest.geometry.coordinates, [lng, lat], baseRadiusKm * 0.5);
-                let wedge = turf.buffer(corridor, baseRadiusKm * 0.65, { units: 'kilometers', steps: 8 });
-                poly = turf.union(poly, wedge);
-            }
-        }
-    } catch(e) {
-        console.warn("Wedge error:", e);
-    }
-    return poly;
+    return buildAdvanceWedge(lng, lat, baseRadiusKm, color);
 }
 
-// === 8. ЗБЕРЕЖЕННЯ / ЗАВАНТАЖЕННЯ ===
+// Знаходить найближчу точку на зовнішній границі полігону (нашої зони контролю).
+// Використовується як "коренева точка" клину наступу — звідси він і "виростає".
+function findNearestOnBorder(poly, targetPt) {
+    try {
+        const lines = turf.polygonToLine(poly);
+        let nearest = null, minDist = Infinity;
+        const tryLine = feat => {
+            try {
+                const pt = turf.nearestPointOnLine(feat, targetPt);
+                if (pt.properties.dist < minDist) { minDist = pt.properties.dist; nearest = pt; }
+            } catch(e) {}
+        };
+        if (lines.type === 'FeatureCollection') turf.featureEach(lines, tryLine);
+        else tryLine(lines);
+        return nearest;
+    } catch(e) { return null; }
+}
+
+// ─── ГОЛОВНА ФУНКЦІЯ ФОРМИ ПРОРИВУ ────────────────────────────────────────────
+// Підхід "коридор → відрізання своєї зони":
+//   1. Будуємо злегка хвилястий коридор від точки на ЛБЗ до цілі (буфер навколо осі).
+//   2. Вирізаємо з коридору частину, яка вже є у нашому полігоні.
+//   3. Залишається тільки "виступ" ВЖЕ ВПЕРЕД, який природно виростає з поточної лінії
+//      фронту — без штучної "основи клину" і без "прилепленого кружечка".
+//   4. Додаємо невелику органічну "голову" в точці перемоги для м'якшого вістря.
+// Результат виглядає як реальна вм'ятина у ворожу оборону — без зайвих ляпків.
+function buildAdvanceWedge(targetLng, targetLat, depthKm, color) {
+    const targetPt = turf.point([targetLng, targetLat]);
+    const ownPoly  = color === 'unit-blue' ? activeBluePolyGeoJSON : activeRedPolyGeoJSON;
+
+    if (!ownPoly) return generateOrganicZone(targetLng, targetLat, depthKm, 0.28);
+    const nearest = findNearestOnBorder(ownPoly, targetPt);
+    if (!nearest || nearest.properties.dist > 45)
+        return generateOrganicZone(targetLng, targetLat, depthKm, 0.28);
+
+    const baseCoord  = nearest.geometry.coordinates;
+    const basePt     = turf.point(baseCoord);
+    const advBearing = turf.bearing(basePt, targetPt);
+    const totalDist  = turf.distance(basePt, targetPt, { units: 'kilometers' });
+
+    // Ширина коридору: від 0.2 до 3.5 км, масштаб від глибини прориву
+    const halfW = Math.max(0.20, Math.min(depthKm * 0.48, 3.5));
+
+    // Злегка хвиляста вісь: одна проміжна точка зі зсувом вбік
+    const midT       = totalDist * (0.38 + Math.random() * 0.22);
+    const lateralKm  = (Math.random() - 0.5) * halfW * 0.40;
+    const midBase    = turf.destination(basePt, midT, advBearing, { units: 'kilometers' });
+    const midPt      = turf.destination(midBase, lateralKm, advBearing + 90, { units: 'kilometers' });
+    // Вістря виступає трохи за ціль
+    const tipPt = turf.destination(basePt, totalDist + depthKm * 0.14, advBearing, { units: 'kilometers' });
+
+    const axisLine = turf.lineString([baseCoord, midPt.geometry.coordinates, tipPt.geometry.coordinates]);
+
+    let corridor;
+    try {
+        corridor = turf.buffer(axisLine, halfW, { units: 'kilometers', steps: 8 });
+    } catch(e) {
+        return generateOrganicZone(targetLng, targetLat, depthKm, 0.28);
+    }
+
+    // КЛЮЧОВИЙ КРОК: прибираємо частину коридору, яка вже є у нашій зоні.
+    // Залишається тільки виступ уперед — виростає органічно прямо з ЛБЗ.
+    try {
+        const forward = turf.difference(corridor, ownPoly);
+        if (forward) {
+            // Органічна "голова" в точці перемоги для плавного вістря замість гострого трикутника
+            const headR = Math.max(depthKm * 0.22, 0.25);
+            const head  = generateOrganicZone(targetLng, targetLat, headR, 0.22);
+            return turf.union(forward, head);
+        }
+    } catch(e) {
+        console.warn('buildAdvanceWedge clip failed, using corridor:', e);
+    }
+
+    return corridor;
+}
+
+// === 8. СТАБІЛЬНІСТЬ ЛБЗ — САНАЦІЯ ПОЛІГОНІВ ===
+//
+// Після багатьох turf.union / turf.difference операцій в полігонах накопичуються
+// артефакти — крихітні ізольовані "острівці" (котли), невидимі нюанси вершин,
+// мікрощілини між сусідніми зонами. Їх прибирає sanitizePoly:
+//
+//   keepLargest = true  (blue/red):
+//       Синя і червона зони мають бути суцільними — берем НАЙБІЛЬШИЙ шматок
+//       MultiPolygon і відкидаємо всі ізольовані "котли".
+//
+//   keepLargest = false (grey):
+//       Сіра зона (нічийна земля) легально може бути в кількох місцях по фронту,
+//       тому відкидаємо тільки "мікрокрапочки" менше порогового значення.
+
+const FRAGMENT_MIN_KM2 = 1.5; // крапочки менше 1.5 км² — артефакт, видаляємо
+
+function sanitizePoly(geo, keepLargest = false) {
+    if (!geo) return null;
+    try {
+        const geom = geo.geometry || geo;
+        if (geom.type === 'Polygon') return geo; // єдиний полігон — все ОК
+
+        if (geom.type !== 'MultiPolygon') return geo;
+
+        // Розпаковуємо MultiPolygon у окремі Feature<Polygon> + рахуємо площі
+        const parts = geom.coordinates
+            .map(ring => ({ poly: turf.polygon(ring), area: 0 }))
+            .map(item => {
+                try { item.area = turf.area(item.poly) / 1e6; } catch(e) {}
+                return item;
+            })
+            .sort((a, b) => b.area - a.area); // найбільші — першими
+
+        if (parts.length === 0) return geo;
+
+        if (keepLargest) {
+            // Для blue/red: лише суцільна головна зона, решта — сміття
+            return parts[0].poly;
+        }
+
+        // Для grey та інших: відкидаємо тільки мікрофрагменти
+        const significant = parts.filter(({ area }) => area >= FRAGMENT_MIN_KM2);
+        if (significant.length === 0) return parts[0].poly; // фолбек до найбільшого
+        if (significant.length === 1) return significant[0].poly;
+
+        // З'єднуємо значущі частини назад в один (можливо MultiPolygon) об'єкт
+        return significant.reduce((acc, { poly }) => {
+            try { return turf.union(acc, poly) || acc; }
+            catch(e) { return acc; }
+        }, significant[0].poly);
+
+    } catch(e) {
+        console.warn('sanitizePoly error:', e);
+        return geo;
+    }
+}
+
+// Примусово "лікує" всі три полігони в поточному стані гри.
+// Можна викликати після завантаження старого збереження або якщо фронт
+// накопичив видимі артефакти. Також підвішена на Ctrl+Shift+F в браузері.
+function cleanFrontlineGeometry() {
+    let changed = false;
+    if (activeBluePolyGeoJSON) {
+        const clean = sanitizePoly(activeBluePolyGeoJSON, true);
+        if (clean) { activeBluePolyGeoJSON = clean; changed = true; }
+    }
+    if (activeRedPolyGeoJSON) {
+        const clean = sanitizePoly(activeRedPolyGeoJSON, true);
+        if (clean) { activeRedPolyGeoJSON = clean; changed = true; }
+    }
+    if (activeGreyPolyGeoJSON) {
+        const clean = sanitizePoly(activeGreyPolyGeoJSON, false);
+        if (clean) { activeGreyPolyGeoJSON = clean; changed = true; }
+    }
+    if (changed) { redrawPolygons(); saveGameState(); }
+    return changed;
+}
+
+// Хоткей Ctrl+Shift+F → ручне лікування фронту
+document.addEventListener('keydown', e => {
+    if (e.ctrlKey && e.shiftKey && e.key === 'F') {
+        e.preventDefault();
+        const fixed = cleanFrontlineGeometry();
+        const log = document.getElementById('combat-log');
+        const txt = document.getElementById('combat-text');
+        if (log && txt) {
+            log.classList.remove('hidden');
+            txt.innerHTML = fixed
+                ? '<span style="color:#00ff88">🗺️ ЛБЗ відкалібрована — артефакти прибрані.</span>'
+                : '<span style="color:#aaa">ЛБЗ вже чиста.</span>';
+            setTimeout(() => log.classList.add('hidden'), 3000);
+        }
+    }
+});
+
+// === 9. ЗБЕРЕЖЕННЯ / ЗАВАНТАЖЕННЯ ===
 function saveGameState() {
     const state = {
         scenario: currentLoadedScenario,
@@ -373,6 +570,9 @@ function loadGameState() {
     globalManpowerPool = s.globalManpowerPool || 0;
     aiManpowerPool     = s.aiManpowerPool || 50000; // ДОДАНО ЗАВАНТАЖЕННЯ ШІ
     reserveBrigades    = s.reserveBrigades || {};
+
+    // Прибираємо накопичені артефакти зі збереженого стану
+    cleanFrontlineGeometry();
     
     updateManpowerUI();
 
@@ -453,26 +653,64 @@ function redrawPolygons() {
 
 function advanceFrontline(winnerLat, winnerLng, color, radiusKm = 2.0) {
     if (!activeBluePolyGeoJSON || !activeRedPolyGeoJSON) return;
-    
-    const captureZone = generateTacticalZone(winnerLng, winnerLat, radiusKm, color);
-    const clearanceRadius = Math.max(0.1, Math.min(radiusKm * 0.3, 1.5)); 
-    const clearanceZone = turf.buffer(captureZone, clearanceRadius, { units: 'kilometers' });
 
-    if (color === 'unit-blue') {
-        activeBluePolyGeoJSON = turf.union(activeBluePolyGeoJSON, captureZone);
-        let cut = turf.difference(activeRedPolyGeoJSON, clearanceZone);
-        if (cut) activeRedPolyGeoJSON = cut;
-    } else {
-        activeRedPolyGeoJSON = turf.union(activeRedPolyGeoJSON, captureZone);
-        let cut = turf.difference(activeBluePolyGeoJSON, clearanceZone);
-        if (cut) activeBluePolyGeoJSON = cut;
-    }
+    // 1. Будуємо зону захоплення
+    let captureZone = buildAdvanceWedge(winnerLng, winnerLat, radiusKm, color);
+    if (!captureZone) return;
+
+    // 2. "ЗАХИСТ СУСІДНІХ ПОЗИЦІЙ"
+    //    Кожен ворожий підрозділ у зоні впливу "закриває" невеликий шматок навколо себе —
+    //    тобто прорив не може проковтнути позиції сусідніх оборонців і залишити їх
+    //    у синій/червоній зоні. Радіус exclusion масштабується зі складністю прориву.
+    const enemyColor = color === 'unit-blue' ? 'unit-red' : 'unit-blue';
+    const winnerPt   = turf.point([winnerLng, winnerLat]);
+    const influence  = radiusKm * 2.8;  // зона "чутливості" до сусідів
+
+    activeDetachments.forEach(det => {
+        const detBrigade = activeBrigades.find(b => b.data.id === det.brigadeId);
+        if (!detBrigade || detBrigade.data.color !== enemyColor) return;
+        const distKm = turf.distance(winnerPt, turf.point([det.lng, det.lat]), { units: 'kilometers' });
+        if (distKm > influence) return;
+
+        // Чим ближчий підрозділ до точки прориву — тим більший "якір" (захищена зона)
+        const anchorR = Math.max(0.25, radiusKm * 0.18 + (1 - distKm / influence) * radiusKm * 0.20);
+        try {
+            const exclusion = turf.buffer(turf.point([det.lng, det.lat]), anchorR, { units: 'kilometers', steps: 8 });
+            const clipped   = turf.difference(captureZone, exclusion);
+            if (clipped) captureZone = clipped;
+        } catch(e) {}
+    });
+
+    // 3. Застосовуємо зміну:
+    //    captureZone додається до нашого полігону і РІВНО настільки ж вирізається у ворога.
+    //    Немає додаткового clearanceRadius — прорив рівно такий, яким є зона захоплення.
+    try {
+        if (color === 'unit-blue') {
+            const nb = turf.union(activeBluePolyGeoJSON, captureZone);
+            if (nb) activeBluePolyGeoJSON = sanitizePoly(nb, true);
+            const cut = turf.difference(activeRedPolyGeoJSON, captureZone);
+            if (cut) activeRedPolyGeoJSON = sanitizePoly(cut, true);
+        } else {
+            const nr = turf.union(activeRedPolyGeoJSON, captureZone);
+            if (nr) activeRedPolyGeoJSON = sanitizePoly(nr, true);
+            const cut = turf.difference(activeBluePolyGeoJSON, captureZone);
+            if (cut) activeBluePolyGeoJSON = sanitizePoly(cut, true);
+        }
+    } catch(e) { console.warn('advanceFrontline union/difference failed:', e); return; }
+
+    // 4. Оновлюємо сіру зону (no-man's-land): розширюємо на captureZone,
+    //    потім прибираємо все що тепер входить в один з двох полігонів.
     if (activeGreyPolyGeoJSON) {
-        activeGreyPolyGeoJSON = turf.union(activeGreyPolyGeoJSON, clearanceZone);
-        let c1 = turf.difference(activeGreyPolyGeoJSON, activeBluePolyGeoJSON); if (c1) activeGreyPolyGeoJSON = c1;
-        let c2 = turf.difference(activeGreyPolyGeoJSON, activeRedPolyGeoJSON); if (c2) activeGreyPolyGeoJSON = c2;
+        try {
+            let g = turf.union(activeGreyPolyGeoJSON, captureZone);
+            if (g) { const c1 = turf.difference(g, activeBluePolyGeoJSON); if (c1) g = c1; }
+            if (g) { const c2 = turf.difference(g, activeRedPolyGeoJSON);  if (c2) g = c2; }
+            if (g) activeGreyPolyGeoJSON = sanitizePoly(g, false);
+        } catch(e) {}
     }
-    redrawPolygons(); saveGameState();
+
+    redrawPolygons();
+    saveGameState();
 }
 
 // === 10. БРИГАДИ ===
@@ -1177,9 +1415,10 @@ function runCombat(attackerDet, defenderDet) {
             removeMoveArrow(winnerDet); // Бій завершено — стрілка більше не потрібна
             
             if (attackerWon && winnerDet.role === 'assault') {
-                // НОВА ФОРМУЛА ПРОРИВУ
-                let captureRadius = Math.sqrt(winnerDet.size) / 4;
-                captureRadius = Math.max(0.2, Math.min(captureRadius, 15.0));
+                // Радіус прориву: √(людей/200)×2 км, макс 5 км.
+                // 200 ос → 2.0 км | 400 ос → 2.8 км | 800 ос → 4.0 км | 1200 ос → 4.9 км
+                let captureRadius = Math.sqrt(winnerDet.size / 200) * 2.0;
+                captureRadius = Math.max(0.4, Math.min(captureRadius, 5.0));
                 advanceFrontline(winnerDet.lat, winnerDet.lng, winner.data.color, captureRadius);
             }
 
@@ -1216,8 +1455,8 @@ function startZoneClearing(detObj, brigade) {
 
             txt.innerHTML += `<br><span style="color:yellow">✅ Захоплено!</span>`;
             
-            let captureRadius = Math.sqrt(detObj.size) / 25;
-            captureRadius = Math.max(0.05, Math.min(captureRadius, 4.0));
+            let captureRadius = Math.sqrt(detObj.size) / 28;
+            captureRadius = Math.max(0.08, Math.min(captureRadius, 2.5));
             
             advanceFrontline(detObj.lat, detObj.lng, brigade.data.color, captureRadius);
             setTimeout(() => log.classList.add('hidden'), 4000);
@@ -1574,64 +1813,3 @@ function spawnEnemyAIBigade() {
 if (!loadGameState()) {
     loadScenario('global');
 }
-
-// ============================================================
-// ТИМЧАСОВИЙ ІНСТРУМЕНТ ДЛЯ МАЛЬОВКИ ЛБЗ
-// ============================================================
-
-// 1. Створюємо інтерфейс кнопок і вішаємо поверх мапи
-const editorDiv = document.createElement('div');
-editorDiv.style.cssText = "position:absolute; top:10px; left:50px; z-index:9999; background:rgba(0,0,0,0.8); padding:10px; border:2px solid #00ff88; border-radius:8px; color:white;";
-editorDiv.innerHTML = `
-    <b style="color:#00ff88;">Редактор ЛБЗ</b><br><br>
-    <button id="btn-lbz-toggle" style="padding:5px; cursor:pointer; background:#444; color:white; border:1px solid #777;">Почати малювати</button><br><br>
-    <button id="btn-lbz-print" style="padding:5px; cursor:pointer; background:#003366; color:white; border:1px solid #0047AB;">Вивести в консоль</button><br><br>
-    <button id="btn-lbz-clear" style="padding:5px; cursor:pointer; background:#800000; color:white; border:1px solid #B30000;">Очистити лінію</button>
-`;
-document.body.appendChild(editorDiv);
-
-// 2. Логіка малювання
-let lbzCoords = [];
-let lbzLine = L.polyline([], {color: '#00ff88', weight: 4, dashArray: '5, 10'}).addTo(map);
-let isLbzDrawing = false;
-
-document.getElementById('btn-lbz-toggle').onclick = () => {
-    isLbzDrawing = !isLbzDrawing;
-    document.getElementById('btn-lbz-toggle').innerText = isLbzDrawing ? 'Зупинити малювання' : 'Почати малювати';
-    document.getElementById('btn-lbz-toggle').style.background = isLbzDrawing ? '#00ff88' : '#444';
-    document.getElementById('btn-lbz-toggle').style.color = isLbzDrawing ? '#000' : '#fff';
-    if(isLbzDrawing) alert("Клікай по мапі (бажано з Півдня на Північ).\nСлідкуй, щоб не було обрано бригад чи загонів.");
-};
-
-map.on('click', function(e) {
-    if (!isLbzDrawing) return;
-    
-    // Округлюємо до 3 знаків (цього достатньо для тактичної мапи)
-    let lat = parseFloat(e.latlng.lat.toFixed(3));
-    let lng = parseFloat(e.latlng.lng.toFixed(3));
-    
-    lbzCoords.push([lat, lng]);
-    lbzLine.setLatLngs(lbzCoords);
-});
-
-document.getElementById('btn-lbz-print').onclick = () => {
-    if (lbzCoords.length === 0) return alert("Лінія порожня!");
-    
-    // Форматуємо масив так, щоб його зручно було вставити в код
-    let result = "[\n";
-    let chunks = [];
-    for(let i = 0; i < lbzCoords.length; i += 5) {
-        let chunk = lbzCoords.slice(i, i+5).map(c => `[${c[0]}, ${c[1]}]`).join(', ');
-        chunks.push(`    ${chunk}`);
-    }
-    result += chunks.join(",\n") + "\n];";
-    
-    console.log("=== СКОПІЮЙ ЦЕЙ КОД ===");
-    console.log(result);
-    alert("Готово! Натисни F12, відкрий вкладку Console (Консоль) і скопіюй масив.");
-};
-
-document.getElementById('btn-lbz-clear').onclick = () => {
-    lbzCoords = [];
-    lbzLine.setLatLngs([]);
-};
